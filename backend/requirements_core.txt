@@ -1,0 +1,43 @@
+# 核心Web框架
+fastapi>=0.100.0
+uvicorn>=0.20.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+
+# 基础依赖
+requests>=2.31.0
+aiofiles>=23.0.0
+python-dotenv>=1.0.0
+httpx>=0.25.0
+
+# 日志
+loguru>=0.7.0
+
+# 开发工具
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# 数据处理
+pandas>=2.0.0
+scipy>=1.10.0
+scikit-learn>=1.3.0
+
+# 文档处理
+PyPDF2>=3.0.0
+python-docx>=1.1.0
+markdown>=3.5.0
+
+# 数据库
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+
+# 图像处理基础
+opencv-python>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# AI相关（可选安装）
+# langchain>=0.0.350
+# chromadb>=0.4.18
+# sentence-transformers>=2.2.2
+# transformers>=4.36.0
