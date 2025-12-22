@@ -83,21 +83,10 @@ npm install
 npm run dev
 ```
 
-MAIN_MODEL_NAME=deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+## 环境配置
 
-# 视觉模型
-VISION_MODEL_NAME=Qwen/Qwen2.5-VL-72B-Instruct
-```
+详细的环境变量说明请参考 `backend/README_API_CONFIG.md`。
 
-### 3. 启动服务
-
-```bash
-# 开发环境（推荐用于测试）
-docker-compose up -d
-
-# 或使用部署脚本
-python scripts/deploy.py --environment development
-```
 
 ### 4. 验证部署
 
