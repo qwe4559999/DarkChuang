@@ -17,6 +17,20 @@ class ChatMessage(BaseModel):
     timestamp: datetime = datetime.now()
     message_type: str = "text"
     image_path: Optional[str] = None
+    image_url: Optional[str] = None
+
+def get_image_url(image_path: str) -> Optional[str]:
+    if not image_path:
+        return None
+    # Normalize path separators
+    path = image_path.replace("\\", "/")
+    if "data/uploads" in path:
+        try:
+            rel_path = path.split("data/uploads")[1]
+            return f"/uploads{rel_path}"
+        except:
+            return None
+    return None
 
 class ChatRequest(BaseModel):
     """聊天请求模型"""
@@ -67,7 +81,8 @@ async def get_chat_history(db: Session = Depends(get_db)):
                 content=m.content, 
                 timestamp=m.created_at,
                 message_type=m.message_type,
-                image_path=m.image_path
+                image_path=m.image_path,
+                image_url=get_image_url(m.image_path)
             ) for m in conv.messages
         ]
         result.append(ConversationHistory(
@@ -91,7 +106,8 @@ async def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
             content=m.content, 
             timestamp=m.created_at,
             message_type=m.message_type,
-            image_path=m.image_path
+            image_path=m.image_path,
+            image_url=get_image_url(m.image_path)
         ) for m in conv.messages
     ]
     return ConversationHistory(

@@ -75,7 +75,16 @@
           isLoading.set(true);
           const conv = await api.getConversation(id);
           currentConversationId = conv.conversation_id;
-          messages.setMessages(conv.messages);
+          
+          // Map backend messages to frontend format
+          const mappedMessages = conv.messages.map((msg: any) => ({
+              role: msg.role,
+              content: msg.content,
+              type: msg.message_type === 'image' ? 'image' : 'text',
+              data: msg.message_type === 'image' ? { imageUrl: msg.image_url } : undefined
+          }));
+
+          messages.setMessages(mappedMessages);
           activeTab = 'chat';
       } catch (e) {
           console.error("Failed to load conversation", e);
