@@ -59,9 +59,19 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-here"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
+    # SiliconFlow 配置
+    SILICONFLOW_API_KEY: str = ""
+    SILICONFLOW_API_BASE: str = "https://api.siliconflow.cn/v1"
+
+    # 单一全能模型配置 (GLM-4.6V)
+    # 用户指定模型: zai-org/GLM-4.6V
+    UNIFIED_MODEL_NAME: str = "zai-org/GLM-4.6V"
+
+
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 # 创建全局设置实例
 settings = Settings()

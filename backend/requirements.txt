@@ -1,3 +1,6 @@
+# 化学计算
+rdkit-pypi>=2023.9.5
+
 # Web框架
 fastapi==0.104.1
 uvicorn[standard]==0.24.0

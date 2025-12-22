@@ -171,12 +171,14 @@ def start_frontend(dev_mode: bool = True) -> Optional[subprocess.Popen]:
     
     if dev_mode:
         print("启动前端开发服务器...")
-        cmd = ["npm", "start"]
+        npm_cmd = "npm.cmd" if os.name == 'nt' else "npm"
+        cmd = [npm_cmd, "run", "dev"]
     else:
         print("构建前端生产版本...")
+        npm_cmd = "npm.cmd" if os.name == 'nt' else "npm"
         # 先构建
         build_process = subprocess.run(
-            ["npm", "run", "build"],
+            [npm_cmd, "run", "build"],
             cwd=frontend_dir
         )
         if build_process.returncode != 0:
@@ -271,7 +273,7 @@ def main():
             pm.add_process(backend_process)
             
             # 等待后端启动
-            if wait_for_service("http://localhost:8000/api/health"):
+            if wait_for_service("http://localhost:8000/api/v1/health"):
                 print("✅ 后端服务启动成功")
             else:
                 print("❌ 后端服务启动失败")
@@ -281,9 +283,7 @@ def main():
             frontend_process = start_frontend(dev_mode)
             if frontend_process:
                 pm.add_process(frontend_process)
-                
-                # 等待前端启动
-                if dev_mode and wait_for_service("http://localhost:3000"):
+                5173"):
                     print("✅ 前端服务启动成功")
                 elif not dev_mode:
                     print("✅ 前端构建完成")
@@ -293,6 +293,8 @@ def main():
         if not args.frontend_only:
             print("📡 后端API: http://localhost:8000")
             print("📋 API文档: http://localhost:8000/docs")
+        if not args.backend_only and dev_mode:
+            print("🌐 前端界面: http://localhost:51730/docs")
         if not args.backend_only and dev_mode:
             print("🌐 前端界面: http://localhost:3000")
         print("\n按 Ctrl+C 停止服务")

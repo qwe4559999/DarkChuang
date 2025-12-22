@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mv frontend frontend_backup)",
+      "Bash(mkdir frontend)",
+      "Bash(git add .)",
+      "Bash(git commit -m \"Refactor: Upgrade to GLM-4.6V single model, integrate RDKit, and rebuild frontend with Svelte\")",
+      "Bash(git push)"
+    ]
+  }
+}
