@@ -11,13 +11,28 @@ export interface Message {
 }
 
 export const api = {
-    async sendMessage(message: string): Promise<any> {
+    async uploadImage(file: File): Promise<any> {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch(`${API_BASE_URL}/upload/image`, {
+            method: 'POST',
+            body: formData,
+        });
+        if (!response.ok) throw new Error('Failed to upload image');
+        return response.json();
+    },
+
+    async sendMessage(message: string, imagePath?: string): Promise<any> {
         const response = await fetch(`${API_BASE_URL}/chat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ message, use_rag: true }),
+            body: JSON.stringify({ 
+                message, 
+                use_rag: true,
+                image_path: imagePath
+            }),
         });
         if (!response.ok) throw new Error('Network response was not ok');
         return response.json();

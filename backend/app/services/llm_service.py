@@ -72,6 +72,52 @@ class LLMService:
             logger.error(f"生成回答失败: {str(e)}")
             return f"生成回答时发生错误: {str(e)}"
 
+    async def analyze_image(
+        self,
+        image_path: str,
+        prompt: str
+    ) -> str:
+        """Generic image analysis using VLM"""
+        try:
+            if not self.client:
+                return "API not configured."
+
+            # Read and encode image
+            with open(image_path, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_data}"
+                            }
+                        }
+                    ]
+                }
+            ]
+
+            model_name = getattr(settings, 'UNIFIED_MODEL_NAME', 'zai-org/GLM-4.6V')
+            response = await self.client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                max_tokens=2000,
+                temperature=0.5
+            )
+
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f"Image analysis failed: {str(e)}")
+            return f"Error analyzing image: {str(e)}"
+
     async def analyze_spectrum_image(
         self,
         image_path: str,

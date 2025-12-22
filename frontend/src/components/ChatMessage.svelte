@@ -16,6 +16,13 @@
         : 'bg-white border border-gray-200 text-gray-800'
     }`}
   >
+    <!-- Image Display -->
+    {#if message.type === 'image' && message.data?.imageUrl}
+      <div class="mb-3">
+        <img src={message.data.imageUrl} alt="Uploaded Content" class="max-h-64 rounded-lg border border-white/20" />
+      </div>
+    {/if}
+
     <!-- Text Content (Markdown) -->
     <div class="prose prose-sm max-w-none dark:prose-invert">
       {@html marked(message.content || '')}

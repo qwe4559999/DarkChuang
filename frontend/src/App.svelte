@@ -28,17 +28,28 @@
     if (activeTab === 'chat') scrollToBottom();
   });
 
-  async function handleSend(event: CustomEvent<string>) {
-    const text = event.detail;
-    if (!text.trim()) return;
+  async function handleSend(event: CustomEvent<{ text: string, file: File | null }>) {
+    const { text, file } = event.detail;
+    if (!text.trim() && !file) return;
 
     // Add user message
-    messages.addMessage({ role: 'user', content: text });
+    messages.addMessage({ 
+        role: 'user', 
+        content: text,
+        type: file ? 'image' : 'text',
+        data: file ? { imageUrl: URL.createObjectURL(file) } : undefined
+    });
     isLoading.set(true);
 
     try {
+      let imagePath = undefined;
+      if (file) {
+          const uploadResult = await api.uploadImage(file);
+          imagePath = uploadResult.file_path;
+      }
+
       // 1. Get Chat Response
-      const response = await api.sendMessage(text);
+      const response = await api.sendMessage(text, imagePath);
       messages.addMessage({ role: 'assistant', content: response.message || response }); // Handle varied backend responses
 
       // 2. Simple Intent Detection for Chemistry Tools (Demo Logic)
@@ -161,14 +172,6 @@
           </button>
 
           <button
-              class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors {activeTab === 'spectrum' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}"
-              on:click={() => activeTab = 'spectrum'}
-          >
-              <Upload size={20} />
-              <span>Spectrum Analysis</span>
-          </button>
-
-          <button
               class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors {activeTab === 'knowledge' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}"
               on:click={() => activeTab = 'knowledge'}
           >
@@ -244,73 +247,6 @@
         {/if}
 
         <!-- Spectrum Tab -->
-        {#if activeTab === 'spectrum'}
-            <div class="h-full overflow-y-auto p-8">
-                <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm p-8">
-                    <div class="mb-8 text-center">
-                        <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Upload size={32} />
-                        </div>
-                        <h3 class="text-2xl font-bold text-gray-800">Upload Spectrum Image</h3>
-                        <p class="text-gray-500 mt-2">Supports IR, NMR, MS, UV spectra images</p>
-                    </div>
-
-                    <div class="space-y-6 max-w-lg mx-auto">
-                        <div class="flex flex-col gap-2">
-                            <label class="font-medium text-gray-700">Spectrum Type</label>
-                            <select bind:value={spectrumType} class="p-2 border border-gray-300 rounded-lg">
-                                <option value="auto">Auto Detect</option>
-                                <option value="IR">Infrared (IR)</option>
-                                <option value="NMR">NMR</option>
-                                <option value="MS">Mass Spectrometry (MS)</option>
-                            </select>
-                        </div>
-
-                        <div class="flex flex-col gap-2">
-                            <label class="font-medium text-gray-700">Upload Image</label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                class="block w-full text-sm text-slate-500
-                                file:mr-4 file:py-2 file:px-4
-                                file:rounded-full file:border-0
-                                file:text-sm file:font-semibold
-                                file:bg-blue-50 file:text-blue-700
-                                hover:file:bg-blue-100"
-                                on:change={(e) => spectrumFile = e.target.files[0]}
-                            />
-                        </div>
-
-                        <button
-                            class="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-                            disabled={!spectrumFile || isAnalyzing}
-                            on:click={handleSpectrumUpload}
-                        >
-                            {#if isAnalyzing}
-                                <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                <span>Analyzing...</span>
-                            {:else}
-                                <span>Start Analysis</span>
-                            {/if}
-                        </button>
-                        
-                        {#if analysisStatus}
-                            <p class="text-center text-sm text-blue-600 font-medium animate-pulse">{analysisStatus}</p>
-                        {/if}
-                    </div>
-
-                    {#if spectrumResult}
-                        <div class="mt-10 border-t pt-8">
-                            <h4 class="text-xl font-bold mb-4">Analysis Result</h4>
-                            <div class="prose max-w-none bg-gray-50 p-6 rounded-lg">
-                                {@html spectrumResult.analysis_result ? spectrumResult.analysis_result.replace(/\n/g, '<br/>') : 'No text result'}
-                            </div>
-                        </div>
-                    {/if}
-                </div>
-            </div>
-        {/if}
-
         <!-- Knowledge Tab -->
         {#if activeTab === 'knowledge'}
             <div class="h-full overflow-y-auto p-8">

@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     # SiliconFlow 配置
     SILICONFLOW_API_KEY: str = ""
     SILICONFLOW_API_BASE: str = "https://api.siliconflow.cn/v1"
+    SILICONFLOW_EMBEDDING_MODEL: str = "BAAI/bge-m3" # 默认使用 BGE-M3，也可以改为 Qwen/Qwen3-Embedding-8B
 
     # 单一全能模型配置 (GLM-4.6V)
     # 用户指定模型: zai-org/GLM-4.6V

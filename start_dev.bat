@@ -5,6 +5,9 @@ echo ========================================================
 echo   DarkChuang Development Environment Launcher
 echo ========================================================
 
+:: 设置 Hugging Face 镜像，解决国内下载模型连接问题
+set HF_ENDPOINT=https://hf-mirror.com
+
 :: 检查虚拟环境是否存在
 if exist "venv\Scripts\activate.bat" (
     set "VENV_ACTIVATE=venv\Scripts\activate.bat"

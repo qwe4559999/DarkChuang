@@ -20,6 +20,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     use_rag: bool = True
     max_tokens: int = 1000
+    image_path: Optional[str] = None
 
 class ChatResponse(BaseModel):
     """聊天响应模型"""
@@ -88,6 +89,21 @@ async def chat(
 
                 context = "\n\n".join([result["content"] for result in search_results])
                 logger.info(f"检索到 {len(search_results)} 个相关文档")
+
+        # 处理图像分析请求
+        if request.image_path:
+            logger.info(f"检测到图像分析请求: {request.image_path}")
+            try:
+                from app.tools.spectrum_tool import SpectrumAnalysisTool
+                spectrum_tool = SpectrumAnalysisTool()
+                analysis_result = await spectrum_tool.run(request.image_path)
+                
+                # 将分析结果添加到上下文中
+                context += f"\n\n【光谱图像分析结果】\n{analysis_result}\n"
+                logger.info("光谱分析完成")
+            except Exception as e:
+                logger.error(f"光谱分析失败: {str(e)}")
+                context += f"\n\n【光谱图像分析失败】\n{str(e)}\n"
 
         # 生成回答
         logger.info("开始生成回答")

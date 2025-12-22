@@ -35,11 +35,35 @@ class RAGService:
             )
             
             # 初始化嵌入模型
-            self.embeddings = HuggingFaceEmbeddings(
-                model_name=settings.EMBEDDING_MODEL,
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
-            )
+            # 优先尝试使用 SiliconFlow API，如果配置了 API Key
+            silicon_key = getattr(settings, 'SILICONFLOW_API_KEY', '') or os.getenv('SILICONFLOW_API_KEY')
+            
+            if silicon_key:
+                try:
+                    from app.services.embeddings import SiliconFlowEmbeddings
+                    # 获取配置的模型名称，默认为 BGE-M3
+                    embedding_model = getattr(settings, 'SILICONFLOW_EMBEDDING_MODEL', 'BAAI/bge-m3')
+                    logger.info(f"使用 SiliconFlow 嵌入模型: {embedding_model}")
+                    
+                    self.embeddings = SiliconFlowEmbeddings(
+                        api_key=silicon_key,
+                        model=embedding_model,
+                        base_url=getattr(settings, 'SILICONFLOW_API_BASE', 'https://api.siliconflow.cn/v1')
+                    )
+                except Exception as e:
+                    logger.warning(f"SiliconFlow 嵌入模型初始化失败，回退到本地模型: {e}")
+                    self.embeddings = HuggingFaceEmbeddings(
+                        model_name=settings.EMBEDDING_MODEL,
+                        model_kwargs={'device': 'cpu'},
+                        encode_kwargs={'normalize_embeddings': True}
+                    )
+            else:
+                logger.info("使用本地 HuggingFace 嵌入模型...")
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name=settings.EMBEDDING_MODEL,
+                    model_kwargs={'device': 'cpu'},
+                    encode_kwargs={'normalize_embeddings': True}
+                )
             
             # 初始化向量数据库
             self._initialize_vectorstore()
@@ -48,7 +72,9 @@ class RAGService:
             
         except Exception as e:
             logger.error(f"RAG服务初始化失败: {str(e)}")
-            raise
+            # 不要在这里 raise，否则整个应用会崩溃或者返回 500
+            # 我们允许 RAG 服务降级运行（即没有向量库功能）
+            # raise 
     
     def _initialize_vectorstore(self):
         """初始化向量数据库"""
@@ -66,13 +92,19 @@ class RAGService:
             )
             
             # 初始化向量存储
-            self.vectorstore = Chroma(
-                client=chroma_client,
-                collection_name="chemistry_knowledge",
-                embedding_function=self.embeddings
-            )
-            
-            logger.info(f"向量数据库初始化完成，路径: {settings.VECTOR_DB_PATH}")
+            try:
+                self.vectorstore = Chroma(
+                    client=chroma_client,
+                    collection_name="chemistry_knowledge",
+                    embedding_function=self.embeddings
+                )
+                logger.info(f"向量数据库初始化完成，路径: {settings.VECTOR_DB_PATH}")
+            except Exception as e:
+                logger.error(f"ChromaDB 初始化失败: {e}")
+                # 尝试重置或重建
+                logger.warning("尝试重建 ChromaDB 客户端...")
+                # 这里可以添加重建逻辑，或者只是记录错误
+                raise e
             
         except Exception as e:
             logger.error(f"向量数据库初始化失败: {str(e)}")
