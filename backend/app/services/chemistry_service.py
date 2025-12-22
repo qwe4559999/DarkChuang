@@ -3,6 +3,8 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors, Draw, AllChem
 import io
 import base64
+import uuid
+import os
 from loguru import logger
 import re
 
@@ -107,14 +109,35 @@ class ChemistryService:
             # 绘图
             img = Draw.MolToImage(mol, size=(width, height))
 
-            # 转为Base64
-            buffered = io.BytesIO()
-            img.save(buffered, format="PNG")
-            img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+            # 保存到文件
+            # 确保目录存在 (相对于运行目录，通常是 backend/)
+            save_dir = os.path.join("static", "structures")
+            os.makedirs(save_dir, exist_ok=True)
+            
+            filename = f"{uuid.uuid4()}.png"
+            file_path = os.path.join(save_dir, filename)
+            
+            img.save(file_path)
+            
+            # 返回URL
+            # 假设后端服务挂载 static 目录到 /static
+            # 这里的URL应该是前端可以访问的路径
+            # 如果前端和后端在同一域下（通过代理），则 /static/... 是可行的
+            # 如果是完全分离的，可能需要完整的URL，但通常前端会处理 base URL
+            # 这里我们返回相对路径，前端显示时通常会拼上后端地址
+            # 或者我们直接返回完整的 http://localhost:8000/static/... 
+            # 为了通用性，我们先返回相对路径，但在 chat.py 中构建 markdown 时，
+            # 如果是相对路径，markdown 图片链接在某些客户端可能无法直接解析（除非前端做了处理）
+            # 考虑到这是一个 web app，浏览器会自动解析相对路径。
+            
+            # 为了保险起见，我们可以尝试获取 HOST 和 PORT 配置，但这比较麻烦。
+            # 让我们先返回 /static/structures/{filename}
+            
+            image_url = f"/static/structures/{filename}"
 
             return {
                 "success": True,
-                "image": f"data:image/png;base64,{img_str}",
+                "image": image_url,
                 "smiles": Chem.MolToSmiles(mol)
             }
 

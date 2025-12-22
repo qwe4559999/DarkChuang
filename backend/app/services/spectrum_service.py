@@ -34,6 +34,89 @@ class SpectrumAnalysisService:
                     'spectrum_type': spectrum_type
                 }
             
+            # 尝试使用CMG-Net进行核磁共振分析
+            if spectrum_type.upper() in ['NMR', '13C NMR', 'CARBON NMR', '核磁']:
+                try:
+                    from app.tools.spectrum_tool import SpectrumAnalysisTool
+                    tool = SpectrumAnalysisTool()
+                    tool_result = await tool.run(image_path, mode='cmgnet')
+                    
+                    if tool_result.get('status') == 'success' and tool_result.get('tool_used') == 'CMG-Net':
+                        logger.info("CMG-Net分析成功")
+                        return {
+                            'success': True,
+                            'spectrum_type': spectrum_type,
+                            'raw_analysis': tool_result.get('analysis'),
+                            'parsed_result': {
+                                'spectrum_type': spectrum_type,
+                                'analysis_sections': {'Structure Prediction': [tool_result.get('analysis')]},
+                                'key_findings': [{'type': 'Structure', 'content': [tool_result.get('analysis')]}],
+                                'confidence_level': 'high'
+                            },
+                            'image_path': image_path
+                        }
+                except Exception as e:
+                    logger.warning(f"CMG-Net分析尝试失败，回退到通用LLM分析: {e}")
+
+                # 尝试基于RDKit的验证流程 (Verification Workflow)
+                try:
+                    logger.info("尝试使用RDKit验证流程")
+                    # 确保工具已初始化
+                    if 'tool' not in locals():
+                        from app.tools.spectrum_tool import SpectrumAnalysisTool
+                        tool = SpectrumAnalysisTool()
+
+                    peaks = await tool.extract_peaks(image_path)
+                    if peaks:
+                        logger.info(f"提取到的峰值: {peaks}")
+                        prompt = f"""
+                        Based on these 13C NMR peaks (ppm): {peaks}, propose 3 possible chemical structures (SMILES).
+                        Return ONLY a JSON list of SMILES strings, e.g., ["C1CCCCC1", "CCO"].
+                        Do not include any other text.
+                        """
+                        candidates_response = await self.llm_service.generate_response(prompt)
+                        
+                        import json
+                        import re
+                        clean_response = re.sub(r'```json|```', '', candidates_response).strip()
+                        match = re.search(r'\[.*?\]', clean_response, re.DOTALL)
+                        
+                        best_candidate = None
+                        best_score = -1
+                        
+                        if match:
+                            candidates = json.loads(match.group(0))
+                            logger.info(f"LLM提出的候选结构: {candidates}")
+                            
+                            for smiles in candidates:
+                                verification = await tool.verify_structure(smiles, peaks)
+                                if verification['is_consistent']:
+                                    # Simple scoring: lower difference is better
+                                    score = 100 - verification['difference']
+                                    if score > best_score:
+                                        best_score = score
+                                        best_candidate = {
+                                            'smiles': smiles,
+                                            'verification': verification
+                                        }
+                        
+                        if best_candidate:
+                            logger.info(f"找到最佳候选结构: {best_candidate['smiles']}")
+                            return {
+                                'success': True,
+                                'spectrum_type': spectrum_type,
+                                'raw_analysis': f"Predicted Structure: {best_candidate['smiles']}\nVerification: {best_candidate['verification']}",
+                                'parsed_result': {
+                                    'spectrum_type': spectrum_type,
+                                    'analysis_sections': {'Structure Prediction': [f"Proposed Structure: {best_candidate['smiles']}", f"Verification: {best_candidate['verification']}"]},
+                                    'key_findings': [{'type': 'Structure', 'content': [f"Proposed Structure: {best_candidate['smiles']}"]}],
+                                    'confidence_level': 'medium'
+                                },
+                                'image_path': image_path
+                            }
+                except Exception as e:
+                    logger.warning(f"RDKit验证流程失败: {e}")
+
             # 使用LLM进行光谱分析
             analysis_result = await self.llm_service.analyze_spectrum_image(
                 image_path=image_path,

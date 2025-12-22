@@ -84,6 +84,19 @@
       }
   }
 
+  async function deleteChat(id: string) {
+      if (!confirm("Are you sure you want to delete this chat?")) return;
+      try {
+          await api.deleteConversation(id);
+          if (currentConversationId === id) {
+              startNewChat();
+          }
+          await loadChatHistory();
+      } catch (e) {
+          alert("Failed to delete chat: " + e);
+      }
+  }
+
   function startNewChat() {
       currentConversationId = null;
       messages.clear();
@@ -279,12 +292,21 @@
               <h4 class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">History</h4>
               <div class="space-y-1">
                   {#each chatHistory as chat}
-                      <button
-                          class="w-full text-left px-4 py-2 text-sm rounded-lg truncate transition-colors {currentConversationId === chat.conversation_id ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}"
-                          on:click={() => loadConversation(chat.conversation_id)}
-                      >
-                          {chat.messages[0]?.content.substring(0, 30) || 'New Chat'}...
-                      </button>
+                      <div class="group flex items-center gap-2 px-2 py-1 rounded-lg transition-colors {currentConversationId === chat.conversation_id ? 'bg-gray-100' : 'hover:bg-gray-50'}">
+                          <button
+                              class="flex-1 text-left text-sm truncate py-1 {currentConversationId === chat.conversation_id ? 'text-gray-900' : 'text-gray-600'}"
+                              on:click={() => loadConversation(chat.conversation_id)}
+                          >
+                              {chat.messages[0]?.content.substring(0, 30) || 'New Chat'}...
+                          </button>
+                          <button 
+                              class="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity"
+                              on:click|stopPropagation={() => deleteChat(chat.conversation_id)}
+                              title="Delete chat"
+                          >
+                              <Trash2 size={14} />
+                          </button>
+                      </div>
                   {/each}
               </div>
           </div>

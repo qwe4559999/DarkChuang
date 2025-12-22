@@ -126,6 +126,14 @@ export const api = {
         return response.json();
     },
 
+    async deleteConversation(conversationId: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/chat/history/${conversationId}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete conversation');
+        return response.json();
+    },
+
     async getKnowledgeBaseStats(): Promise<any> {
         const response = await fetch(`${API_BASE_URL}/knowledge/stats`);
         if (!response.ok) throw new Error('Failed to get stats');
