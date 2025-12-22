@@ -6,7 +6,14 @@
       "Bash(git add .)",
       "Bash(git commit -m \"Refactor: Upgrade to GLM-4.6V single model, integrate RDKit, and rebuild frontend with Svelte\")",
       "Bash(git push)",
-      "Bash(git commit -m \"Cleanup: Remove obsolete scripts, diagrams, and unused dependencies\")"
+      "Bash(git commit -m \"Cleanup: Remove obsolete scripts, diagrams, and unused dependencies\")",
+      "Bash(pip install -r backend/requirements.txt)",
+      "Bash(venvScriptspython --version)",
+      "Bash(venvScriptspip install -r backendrequirements.txt)",
+      "Bash(./venv/Scripts/pip install -r backend/requirements.txt)",
+      "Bash(./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel)",
+      "Bash(npm install)",
+      "Bash(cat)"
     ]
   }
 }

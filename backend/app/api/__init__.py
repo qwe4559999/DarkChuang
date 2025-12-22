@@ -1,5 +1,5 @@
 """API路由模块"""
 
-from . import chat, image, health
+from . import chat, health
 
-__all__ = ["chat", "image", "health"]
+__all__ = ["chat", "health"]
