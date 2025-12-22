@@ -96,7 +96,7 @@ async def analyze_spectrum(
             spectrum_type=spectrum_type,
             analysis_result=analysis_result['parsed_result'],
             raw_analysis=analysis_result['raw_analysis'],
-            image_quality=analysis_result.get('image_quality', {}),
+            image_quality=analysis_result.get('image_quality'),
             message="光谱分析完成"
         )
         
