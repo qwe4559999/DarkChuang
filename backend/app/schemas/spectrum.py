@@ -21,7 +21,7 @@ class ImageQuality(BaseModel):
     """
     图像质量评估结果
     """
-    quality_score: float = Field(..., description="质量评分 (0.0-1.0)")
+    quality_score: Optional[float] = Field(None, description="质量评分 (0.0-1.0)")
     issues: List[str] = Field(default_factory=list, description="发现的问题列表")
     metrics: Dict[str, Any] = Field(default_factory=dict, description="质量指标")
 
