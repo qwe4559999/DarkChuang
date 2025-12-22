@@ -91,12 +91,17 @@ async def analyze_spectrum(
                 detail=f"光谱分析失败: {analysis_result.get('error', '未知错误')}"
             )
 
+        # 处理 image_quality，防止空字典导致的验证错误
+        img_quality = analysis_result.get('image_quality')
+        if img_quality == {}:
+            img_quality = None
+
         return SpectrumAnalysisResponse(
             success=True,
             spectrum_type=spectrum_type,
             analysis_result=analysis_result['parsed_result'],
             raw_analysis=analysis_result['raw_analysis'],
-            image_quality=analysis_result.get('image_quality'),
+            image_quality=img_quality,
             message="光谱分析完成"
         )
         
