@@ -5,6 +5,8 @@ from app.api import chat, health, chemistry, knowledge, upload
 from app.api.v1 import spectrum
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.db.base import engine, Base
+from app.models import sql_models
 import os
 
 # 设置 Hugging Face 镜像 (针对国内网络环境)
@@ -12,6 +14,9 @@ os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 # 设置日志
 setup_logging()
+
+# 创建数据库表
+Base.metadata.create_all(bind=engine)
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -40,7 +45,7 @@ app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
 
 # 注册路由
 app.include_router(health.router, prefix="/api/v1", tags=["健康检查"])
-app.include_router(chat.router, prefix="/api/v1", tags=["问答聊天"])
+app.include_router(chat.router, prefix="/api/v1/chat", tags=["问答聊天"])
 app.include_router(upload.router, prefix="/api/v1", tags=["文件上传"])
 app.include_router(spectrum.router, prefix="/api/v1", tags=["光谱分析"])
 app.include_router(chemistry.router, prefix="/api/v1/chemistry", tags=["化学工具"])

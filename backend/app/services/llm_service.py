@@ -66,7 +66,13 @@ class LLMService:
                 stream=False
             )
 
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            
+            # 清理可能出现的特殊标记
+            if content:
+                content = content.replace("<|begin_of_box|>", "").replace("<|end_of_box|>", "")
+
+            return content
 
         except Exception as e:
             logger.error(f"生成回答失败: {str(e)}")

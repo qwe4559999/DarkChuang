@@ -1,22 +1,26 @@
 <script lang="ts">
-  import { onMount, afterUpdate } from 'svelte';
+  import { onMount, afterUpdate, onDestroy } from 'svelte';
   import ChatMessage from './components/ChatMessage.svelte';
   import ChatInput from './components/ChatInput.svelte';
   import { messages, isLoading } from './stores/chat';
   import { api } from './lib/api';
-  import { FlaskConical, MessageSquare, FileText, Upload } from 'lucide-svelte';
+  import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus } from 'lucide-svelte';
 
   let chatContainer: HTMLElement;
-  let activeTab = 'chat'; // 'chat', 'spectrum', 'knowledge'
+  let activeTab = 'chat'; // 'chat', 'knowledge'
   let spectrumFile: File | null = null;
   let spectrumType = 'auto';
   let spectrumResult: any = null;
   let isAnalyzing = false;
-  let analysisStatus = ''; // 'Uploading...', 'Analyzing with AI...', 'Parsing results...'
+  let analysisStatus = ''; 
 
   let knowledgeFiles: FileList | null = null;
   let isUploading = false;
   let uploadStatus = '';
+  let uploadedFilesList: any[] = [];
+  let chatHistory: any[] = [];
+  let currentConversationId: string | null = null;
+  let pollingInterval: any = null;
 
   function scrollToBottom() {
     if (chatContainer) {
@@ -27,6 +31,90 @@
   afterUpdate(() => {
     if (activeTab === 'chat') scrollToBottom();
   });
+
+  onMount(async () => {
+      await loadChatHistory();
+  });
+
+  onDestroy(() => {
+      stopPolling();
+  });
+
+  function startPolling() {
+      stopPolling();
+      pollingInterval = setInterval(async () => {
+          if (activeTab === 'knowledge') {
+              await loadKnowledgeFiles();
+              // If no files are pending, we could potentially stop polling, 
+              // but keeping it active while in the tab is safer for now.
+              const hasPending = uploadedFilesList.some(f => f.status === 'pending');
+              if (!hasPending && pollingInterval) {
+                  // Optional: slow down polling or stop if we want to be efficient
+              }
+          }
+      }, 3000); // Poll every 3 seconds
+  }
+
+  function stopPolling() {
+      if (pollingInterval) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+      }
+  }
+
+  async function loadChatHistory() {
+      try {
+          chatHistory = await api.getChatHistory();
+      } catch (e) {
+          console.error("Failed to load chat history", e);
+      }
+  }
+
+  async function loadConversation(id: string) {
+      try {
+          isLoading.set(true);
+          const conv = await api.getConversation(id);
+          currentConversationId = conv.conversation_id;
+          messages.setMessages(conv.messages);
+          activeTab = 'chat';
+      } catch (e) {
+          console.error("Failed to load conversation", e);
+      } finally {
+          isLoading.set(false);
+      }
+  }
+
+  function startNewChat() {
+      currentConversationId = null;
+      messages.clear();
+      activeTab = 'chat';
+  }
+
+  async function loadKnowledgeFiles() {
+      try {
+          uploadedFilesList = await api.getKnowledgeFiles();
+      } catch (e) {
+          console.error("Failed to load knowledge files", e);
+      }
+  }
+
+  async function deleteFile(id: number) {
+      if (!confirm("Are you sure you want to delete this file?")) return;
+      try {
+          await api.deleteKnowledgeFile(id);
+          await loadKnowledgeFiles();
+      } catch (e) {
+          alert("Failed to delete file: " + e);
+      }
+  }
+
+  // Watch activeTab to load files
+  $: if (activeTab === 'knowledge') {
+      loadKnowledgeFiles();
+      startPolling();
+  } else {
+      stopPolling();
+  }
 
   async function handleSend(event: CustomEvent<{ text: string, file: File | null }>) {
     const { text, file } = event.detail;
@@ -49,7 +137,14 @@
       }
 
       // 1. Get Chat Response
-      const response = await api.sendMessage(text, imagePath);
+      const response = await api.sendMessage(text, imagePath, currentConversationId || undefined);
+      
+      // Update conversation ID if it's new
+      if (!currentConversationId && response.conversation_id) {
+          currentConversationId = response.conversation_id;
+          await loadChatHistory(); // Refresh list
+      }
+
       messages.addMessage({ role: 'assistant', content: response.message || response }); // Handle varied backend responses
 
       // 2. Simple Intent Detection for Chemistry Tools (Demo Logic)
@@ -142,6 +237,7 @@
           uploadStatus = `Success! ${result.message}`;
           setTimeout(() => uploadStatus = '', 5000);
           knowledgeFiles = null;
+          await loadKnowledgeFiles(); // Refresh list
       } catch (e) {
           console.error(e);
           uploadStatus = 'Upload failed: ' + e;
@@ -162,13 +258,13 @@
           <p class="text-xs text-gray-400 mt-1 ml-8">AI Chemistry Assistant</p>
       </div>
 
-      <nav class="flex-1 p-4 space-y-2">
+      <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
           <button
-              class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors {activeTab === 'chat' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}"
-              on:click={() => activeTab = 'chat'}
+              class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors {activeTab === 'chat' && !currentConversationId ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'}"
+              on:click={startNewChat}
           >
-              <MessageSquare size={20} />
-              <span>Chat Assistant</span>
+              <Plus size={20} />
+              <span>New Chat</span>
           </button>
 
           <button
@@ -178,6 +274,20 @@
               <FileText size={20} />
               <span>Knowledge Base</span>
           </button>
+
+          <div class="pt-4 border-t border-gray-100 mt-4">
+              <h4 class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">History</h4>
+              <div class="space-y-1">
+                  {#each chatHistory as chat}
+                      <button
+                          class="w-full text-left px-4 py-2 text-sm rounded-lg truncate transition-colors {currentConversationId === chat.conversation_id ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}"
+                          on:click={() => loadConversation(chat.conversation_id)}
+                      >
+                          {chat.messages[0]?.content.substring(0, 30) || 'New Chat'}...
+                      </button>
+                  {/each}
+              </div>
+          </div>
       </nav>
   </aside>
 
@@ -282,6 +392,54 @@
                         {#if uploadStatus}
                             <p class="mt-2 text-sm text-blue-600 font-medium">{uploadStatus}</p>
                         {/if}
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-bold text-gray-800">Uploaded Documents</h4>
+                            <button on:click={loadKnowledgeFiles} class="text-blue-600 hover:text-blue-800">
+                                <RefreshCw size={16} />
+                            </button>
+                        </div>
+                        
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    {#each uploadedFilesList as file}
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{file.filename}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                                <span class={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                    ${file.status === 'indexed' ? 'bg-green-100 text-green-800' : 
+                                                      file.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                    {file.status}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(file.upload_time).toLocaleDateString()}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <button on:click={() => deleteFile(file.id)} class="text-red-600 hover:text-red-900">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {:else}
+                                        <tr>
+                                            <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">No documents uploaded yet.</td>
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div>

@@ -6,20 +6,60 @@ import os
 import shutil
 import uuid
 from loguru import logger
-
 from app.services.rag_service import RAGService
 from app.core.config import settings
+
+from sqlalchemy.orm import Session
+from app.db.base import get_db
+from app.models.sql_models import KnowledgeFile
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 def get_rag_service() -> RAGService:
     return RAGService()
 
+@router.get("/files", response_model=List[Dict[str, Any]])
+async def list_files(db: Session = Depends(get_db)):
+    """列出知识库中的所有文件"""
+    files = db.query(KnowledgeFile).order_by(KnowledgeFile.upload_time.desc()).all()
+    return [
+        {
+            "id": f.id,
+            "filename": f.filename,
+            "size": f.file_size,
+            "upload_time": f.upload_time,
+            "status": f.status,
+            "error": f.error_message
+        }
+        for f in files
+    ]
+
+@router.delete("/files/{file_id}")
+async def delete_file(file_id: int, db: Session = Depends(get_db)):
+    """删除文件"""
+    file_record = db.query(KnowledgeFile).filter(KnowledgeFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # 删除物理文件
+    try:
+        if os.path.exists(file_record.file_path):
+            os.remove(file_record.file_path)
+    except Exception as e:
+        logger.error(f"Failed to delete file {file_record.file_path}: {e}")
+
+    # TODO: 从向量数据库中删除对应的向量 (需要 RAGService 支持)
+    
+    db.delete(file_record)
+    db.commit()
+    return {"success": True, "message": "File deleted"}
+
 @router.post("/upload")
 async def upload_documents(
     files: List[UploadFile] = File(...),
     background_tasks: BackgroundTasks = BackgroundTasks(),
-    rag_service: RAGService = Depends(get_rag_service)
+    rag_service: RAGService = Depends(get_rag_service),
+    db: Session = Depends(get_db)
 ):
     """
     上传文档到知识库
@@ -37,7 +77,7 @@ async def upload_documents(
         upload_dir = Path(settings.UPLOAD_DIR) / "knowledge_base"
         upload_dir.mkdir(parents=True, exist_ok=True)
 
-        saved_files = []
+        saved_files_info = []
 
         for file in files:
             # 检查文件类型
@@ -51,69 +91,95 @@ async def upload_documents(
 
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
+            
+            # 记录到数据库
+            db_file = KnowledgeFile(
+                filename=file.filename,
+                file_path=str(file_path),
+                file_size=os.path.getsize(file_path),
+                status="pending"
+            )
+            db.add(db_file)
+            db.commit()
+            db.refresh(db_file)
 
-            saved_files.append(str(file_path))
+            saved_files_info.append({
+                "path": str(file_path),
+                "db_id": db_file.id
+            })
 
-        if not saved_files:
+        if not saved_files_info:
             raise HTTPException(status_code=400, detail="没有有效的文档被上传 (仅支持 PDF, TXT, MD)")
 
         # 在后台处理文档索引
-        background_tasks.add_task(process_documents, rag_service, saved_files)
+        background_tasks.add_task(process_documents, rag_service, saved_files_info, db)
 
         return JSONResponse(content={
             "success": True,
-            "message": f"成功上传 {len(saved_files)} 个文档，正在后台建立索引...",
-            "files": saved_files
+            "message": f"成功上传 {len(saved_files_info)} 个文档，正在后台建立索引...",
+            "files": [f["path"] for f in saved_files_info]
         })
 
     except Exception as e:
         logger.error(f"文档上传失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
-async def process_documents(rag_service: RAGService, file_paths: List[str]):
+async def process_documents(rag_service: RAGService, files_info: List[Dict], db: Session):
     """后台处理文档索引"""
     try:
-        logger.info(f"开始后台处理 {len(file_paths)} 个文档")
-
-        # 加载和索引文档
-        # 注意: RAGService.load_documents_from_directory 设计为读取整个目录
-        # 这里我们为了简化，可以将单个文件视为"目录"处理，或者稍微修改 RAGService
-        # 但既然 RAGService 主要是基于目录的，我们可以创建一个临时目录或者直接调用底层的 loader
-
-        # 更简单的方法: 使用 load_documents_from_directory 加载整个上传目录
-        # 或者为了精确控制，我们直接使用 LangChain loaders
+        logger.info(f"开始后台处理 {len(files_info)} 个文档")
 
         from langchain_community.document_loaders import PyPDFLoader, TextLoader
         from langchain.schema import Document
 
-        documents = []
-        for file_path in file_paths:
-            path_obj = Path(file_path)
-            ext = path_obj.suffix.lower()
+        for info in files_info:
+            file_path = info["path"]
+            db_id = info["db_id"]
+            
+            # 获取数据库记录
+            # 注意：这里需要新的 session 吗？BackgroundTasks 运行在请求结束后
+            # 最好在这里重新获取 session，但为了简单，我们假设 db session 仍然有效或者我们手动处理
+            # 实际上 FastAPI 的 Depends(get_db) 在后台任务中可能已经关闭
+            # 正确做法是手动创建 session
+            
+            from app.db.base import SessionLocal
+            bg_db = SessionLocal()
+            file_record = bg_db.query(KnowledgeFile).filter(KnowledgeFile.id == db_id).first()
 
             try:
+                path_obj = Path(file_path)
+                ext = path_obj.suffix.lower()
+
                 if ext == '.pdf':
                     loader = PyPDFLoader(file_path)
                 else:
                     loader = TextLoader(file_path, encoding='utf-8')
 
                 docs = loader.load()
+                
                 # 添加元数据
                 for doc in docs:
-                    doc.metadata.update({
-                        'source': file_path,
-                        'file_name': path_obj.name
-                    })
-                documents.extend(docs)
-            except Exception as e:
-                logger.error(f"处理文件 {file_path} 失败: {str(e)}")
+                    doc.metadata["source"] = file_record.filename
+                    doc.metadata["file_id"] = file_record.id
 
-        if documents:
-            await rag_service.add_documents(documents)
-            logger.info(f"成功索引 {len(documents)} 个文档片段")
+                await rag_service.add_documents(docs)
+                
+                file_record.status = "indexed"
+                bg_db.commit()
+                
+            except Exception as e:
+                logger.error(f"处理文件 {file_path} 失败: {e}")
+                if file_record:
+                    file_record.status = "failed"
+                    file_record.error_message = str(e)
+                    bg_db.commit()
+            finally:
+                bg_db.close()
+
+        logger.info("后台文档处理完成")
 
     except Exception as e:
-        logger.error(f"后台文档处理失败: {str(e)}")
+        logger.error(f"后台任务执行失败: {str(e)}")
 
 @router.get("/stats")
 async def get_knowledge_base_stats(rag_service: RAGService = Depends(get_rag_service)):

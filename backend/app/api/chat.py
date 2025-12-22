@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 from app.services.rag_service import RAGService
 from app.services.llm_service import LLMService
+from app.services.chemistry_service import ChemistryService
 from loguru import logger
 
 router = APIRouter()
@@ -37,8 +38,9 @@ class ConversationHistory(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-import json
-from app.services.chemistry_service import ChemistryService
+from sqlalchemy.orm import Session
+from app.db.base import get_db
+from app.models.sql_models import Conversation, Message
 
 # 依赖注入
 def get_rag_service() -> RAGService:
@@ -50,12 +52,55 @@ def get_llm_service() -> LLMService:
 def get_chemistry_service() -> ChemistryService:
     return ChemistryService()
 
-@router.post("/chat", response_model=ChatResponse)
+@router.get("/history", response_model=List[ConversationHistory])
+async def get_chat_history(db: Session = Depends(get_db)):
+    """获取所有对话历史"""
+    conversations = db.query(Conversation).order_by(Conversation.updated_at.desc()).all()
+    result = []
+    for conv in conversations:
+        msgs = [
+            ChatMessage(
+                role=m.role, 
+                content=m.content, 
+                timestamp=m.created_at
+            ) for m in conv.messages
+        ]
+        result.append(ConversationHistory(
+            conversation_id=conv.id,
+            messages=msgs,
+            created_at=conv.created_at,
+            updated_at=conv.updated_at
+        ))
+    return result
+
+@router.get("/history/{conversation_id}", response_model=ConversationHistory)
+async def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
+    """获取指定对话详情"""
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    msgs = [
+        ChatMessage(
+            role=m.role, 
+            content=m.content, 
+            timestamp=m.created_at
+        ) for m in conv.messages
+    ]
+    return ConversationHistory(
+        conversation_id=conv.id,
+        messages=msgs,
+        created_at=conv.created_at,
+        updated_at=conv.updated_at
+    )
+
+@router.post("/", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
     rag_service: RAGService = Depends(get_rag_service),
     llm_service: LLMService = Depends(get_llm_service),
-    chemistry_service: ChemistryService = Depends(get_chemistry_service)
+    chemistry_service: ChemistryService = Depends(get_chemistry_service),
+    db: Session = Depends(get_db)
 ):
     """处理聊天请求"""
     start_time = datetime.now()
@@ -63,8 +108,27 @@ async def chat(
     try:
         logger.info(f"收到聊天请求: {request.message[:100]}...")
 
-        # 生成对话ID
+        # 生成或获取对话ID
         conversation_id = request.conversation_id or f"conv_{int(datetime.now().timestamp())}"
+        
+        # 确保对话存在于数据库
+        db_conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if not db_conv:
+            db_conv = Conversation(id=conversation_id, title=request.message[:50])
+            db.add(db_conv)
+            db.commit()
+            db.refresh(db_conv)
+
+        # 保存用户消息
+        user_msg = Message(
+            conversation_id=conversation_id,
+            role="user",
+            content=request.message,
+            message_type="image" if request.image_path else "text",
+            image_path=request.image_path
+        )
+        db.add(user_msg)
+        db.commit()
 
         sources = []
         context = ""
@@ -112,6 +176,16 @@ async def chat(
             context=context,
             max_tokens=request.max_tokens
         )
+
+        # 保存助手回复
+        assistant_msg = Message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=response_message,
+            message_type="text"
+        )
+        db.add(assistant_msg)
+        db.commit()
 
         # 检查是否包含工具调用
         if "chemistry_tool" in response_message:
