@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "3dmol": "^2.5.3",
+    "katex": "^0.16.27",
     "lucide-svelte": "^0.303.0",
     "marked": "^11.1.0"
   }

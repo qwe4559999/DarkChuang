@@ -7,7 +7,7 @@
 ![Svelte](https://img.shields.io/badge/Svelte-4.0+-orange.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen.svg)
-![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)
+![Version](https://img.shields.io/badge/Version-2.2.1-blue.svg)
 
 ![RDKit](https://img.shields.io/badge/Chemistry-RDKit-red.svg)
 ![GLM-4V](https://img.shields.io/badge/Model-GLM--4V-purple.svg)

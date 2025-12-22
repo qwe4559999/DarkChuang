@@ -1,6 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { marked } from 'marked';
+  import { marked } from '../lib/markdown';
   import { Maximize2 } from 'lucide-svelte';
   import type { Message } from '../lib/api';
   import Molecule3D from './Molecule3D.svelte';
