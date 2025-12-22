@@ -48,6 +48,14 @@
 
 ## 快速开始
 
+### 🚀 一键启动 (Windows)
+项目根目录提供了便捷的启动脚本，双击运行即可同时启动前后端服务：
+```bash
+.\start_dev.bat
+```
+
+### 手动启动步骤
+
 ### 1. 克隆项目
 ```bash
 git clone https://github.com/qwe4559999/DarkChuang.git
