@@ -53,20 +53,20 @@
 
 ### 🚀 一键启动 (Windows)
 项目根目录提供了便捷的启动脚本，双击运行即可同时启动前后端服务：
-`ash
+```bash
 .\start_dev.bat
-`
+```
 
 ### 手动启动步骤
 
 ### 1. 克隆项目
-`ash
+```bash
 git clone https://github.com/qwe4559999/DarkChuang.git
 cd DarkChuang
-`
+```
 
 ### 2. 后端启动
-`ash
+```bash
 cd backend
 # 建议使用 Conda 或 venv 创建虚拟环境
 python -m venv venv
@@ -81,20 +81,20 @@ pip install -r requirements.txt
 
 # 启动服务
 uvicorn app.main:app --reload
-`
+```
 
 ### 3. 前端启动
-`ash
+```bash
 cd frontend
 # 安装依赖
 npm install
 
 # 启动开发服务器
 npm run dev
-`
+```
 
 ### 4. 访问应用
-打开浏览器访问: http://localhost:5173
+打开浏览器访问: `http://localhost:5173`
 
 ## 功能演示
 
@@ -122,7 +122,7 @@ npm run dev
 
 ## 目录结构
 
-`
+```
 DarkChuang/
 ├── backend/                # FastAPI 后端
 │   ├── app/
@@ -139,7 +139,7 @@ DarkChuang/
 │   │   ├── lib/            # API 客户端
 │   │   └── stores/         # 状态管理
 └── docs/                   # 项目文档
-`
+```
 
 ## 贡献
 
