@@ -93,13 +93,20 @@ async def analyze_spectrum(
 
         # 处理 image_quality，防止空字典导致的验证错误
         img_quality = analysis_result.get('image_quality')
-        # 如果 img_quality 是空字典或假值，强制设为 None
-        if not img_quality:
-            img_quality = None
         
-        logger.info(f"Analysis result keys: {analysis_result.keys()}")
-        if img_quality:
-            logger.info(f"Image quality data: {img_quality}")
+        # 详细的调试日志
+        logger.info(f"DEBUG: img_quality raw: {img_quality}, type: {type(img_quality)}")
+        
+        # 激进的清理逻辑
+        if img_quality is None:
+            pass
+        elif isinstance(img_quality, dict) and not img_quality:
+            img_quality = None
+        elif isinstance(img_quality, str) and (img_quality == "{}" or not img_quality.strip()):
+            img_quality = None
+        elif isinstance(img_quality, dict) and 'quality_score' not in img_quality:
+            logger.warning(f"Dropping invalid image_quality (missing quality_score): {img_quality}")
+            img_quality = None
 
         return SpectrumAnalysisResponse(
             success=True,
