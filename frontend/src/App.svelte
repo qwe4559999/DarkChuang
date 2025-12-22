@@ -12,6 +12,7 @@
   let spectrumType = 'auto';
   let spectrumResult: any = null;
   let isAnalyzing = false;
+  let analysisStatus = ''; // 'Uploading...', 'Analyzing with AI...', 'Parsing results...'
 
   let knowledgeFiles: FileList | null = null;
   let isUploading = false;
@@ -96,15 +97,27 @@
   async function handleSpectrumUpload() {
       if (!spectrumFile) return;
       isAnalyzing = true;
+      analysisStatus = 'Initializing analysis...';
       spectrumResult = null;
+      
       try {
+          // Simulate progress steps since backend is monolithic
+          const progressTimer = setInterval(() => {
+             if (analysisStatus === 'Initializing analysis...') analysisStatus = 'Uploading image...';
+             else if (analysisStatus === 'Uploading image...') analysisStatus = 'AI Model is analyzing spectrum (this may take 10-20s)...';
+          }, 1000);
+
           const result = await api.uploadSpectrum(spectrumFile, spectrumType);
+          clearInterval(progressTimer);
+          analysisStatus = 'Analysis complete!';
           spectrumResult = result;
       } catch (e) {
           console.error(e);
+          analysisStatus = 'Error occurred';
           alert("Analysis failed: " + e);
       } finally {
           isAnalyzing = false;
+          setTimeout(() => { if (!isAnalyzing) analysisStatus = ''; }, 3000);
       }
   }
 
@@ -269,12 +282,21 @@
                         </div>
 
                         <button
-                            class="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                             disabled={!spectrumFile || isAnalyzing}
                             on:click={handleSpectrumUpload}
                         >
-                            {isAnalyzing ? 'Analyzing...' : 'Start Analysis'}
+                            {#if isAnalyzing}
+                                <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <span>Analyzing...</span>
+                            {:else}
+                                <span>Start Analysis</span>
+                            {/if}
                         </button>
+                        
+                        {#if analysisStatus}
+                            <p class="text-center text-sm text-blue-600 font-medium animate-pulse">{analysisStatus}</p>
+                        {/if}
                     </div>
 
                     {#if spectrumResult}
