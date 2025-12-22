@@ -47,17 +47,42 @@ cd DarkChuang
 # 复制环境变量模板
 cp .env.example .env
 
-# 编辑环境变量（必须配置API密钥）
+# 编辑环境变量（必须配置 SiliconFlow API 密钥）
 nano .env
 ```
 
 **重要配置项：**
 ```env
-# 硅基流动API配置（必须）
-SILICONFLOW_API_KEY=your_api_key_here
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+# SiliconFlow API 配置 (核心)
+SILICONFLOW_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+UNIFIED_MODEL_NAME=zai-org/GLM-4.6V
 
-# 主要对话模型
+# RAG 配置
+SILICONFLOW_EMBEDDING_MODEL=BAAI/bge-m3
+```
+
+### 3. 启动服务
+
+#### 方式一：Docker Compose (推荐)
+```bash
+docker-compose up -d
+```
+
+#### 方式二：手动启动
+**后端**
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+**前端**
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
 MAIN_MODEL_NAME=deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
 
 # 视觉模型
