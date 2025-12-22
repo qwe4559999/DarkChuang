@@ -12,19 +12,17 @@ services:
     environment:
       - PYTHONPATH=/app
       - DATABASE_URL=sqlite:///./data/chemistry_bot.db
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OPENAI_API_URL=${OPENAI_API_URL:-https://api.openai.com/v1}
-      - LLM_MODEL=${LLM_MODEL:-gpt-3.5-turbo}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-ada-002}
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY}
+      - SILICONFLOW_BASE_URL=${SILICONFLOW_BASE_URL:-https://api.siliconflow.cn/v1}
+      - UNIFIED_MODEL_NAME=${UNIFIED_MODEL_NAME:-zai-org/GLM-4.6V}
+      - SILICONFLOW_EMBEDDING_MODEL=${SILICONFLOW_EMBEDDING_MODEL:-BAAI/bge-m3}
       - DEBUG=${DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ./data:/app/data
-      - ./models:/app/models
       - ./backend/logs:/app/logs
       - ./backend/uploads:/app/uploads
-    depends_on:
-      - redis
+      - ./backend/static:/app/static
     networks:
       - chemistry_bot_network
     restart: unless-stopped
@@ -44,7 +42,7 @@ services:
     ports:
       - "3000:80"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
     depends_on:
       - backend
     networks:
@@ -55,6 +53,20 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # ChromaDB 向量数据库
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chemistry_bot_chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./data/vector_db:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+    networks:
+      - chemistry_bot_network
+    restart: unless-stopped
 
   # Redis缓存服务
   redis:
