@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 import json
 from app.services.rag_service import RAGService
@@ -18,6 +18,7 @@ class ChatMessage(BaseModel):
     message_type: str = "text"
     image_path: Optional[str] = None
     image_url: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
 
 def get_image_url(image_path: str) -> Optional[str]:
     if not image_path:
@@ -47,6 +48,8 @@ class ChatResponse(BaseModel):
     sources: List[dict] = []
     timestamp: datetime = datetime.now()
     processing_time: float
+    message_type: str = "text"
+    data: Optional[Dict[str, Any]] = None
 
 class ConversationHistory(BaseModel):
     """对话历史模型"""
@@ -82,7 +85,8 @@ async def get_chat_history(db: Session = Depends(get_db)):
                 timestamp=m.created_at,
                 message_type=m.message_type,
                 image_path=m.image_path,
-                image_url=get_image_url(m.image_path)
+                image_url=get_image_url(m.image_path),
+                data=json.loads(m.data) if m.data else None
             ) for m in conv.messages
         ]
         result.append(ConversationHistory(
@@ -107,7 +111,8 @@ async def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
             timestamp=m.created_at,
             message_type=m.message_type,
             image_path=m.image_path,
-            image_url=get_image_url(m.image_path)
+            image_url=get_image_url(m.image_path),
+            data=json.loads(m.data) if m.data else None
         ) for m in conv.messages
     ]
     return ConversationHistory(
@@ -222,6 +227,7 @@ async def chat(
         db.add(assistant_msg)
         db.commit()
         db.refresh(assistant_msg) # 获取ID以便后续更新
+        assistant_msg_id = assistant_msg.id # 保存ID，避免对象过期问题
 
         # 工具调用循环 (支持多轮工具调用，例如：分析 -> 生成图片)
         max_tool_calls = 3
@@ -283,9 +289,32 @@ async def chat(
                             image_markdown = f"![{molecule}]({img_result['image']})"
                             tool_result_text = f"已生成 {molecule} 的结构图: {image_markdown}\nSMILES: {img_result['smiles']}"
                             query_prompt = f"请根据上下文中的分析结果，详细解释为什么推断出是 {molecule}，并展示生成的结构图。结构图信息：{tool_result_text}"
+                            
+                            # 更新消息数据 (2D图)
+                            msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+                            if msg_to_update:
+                                msg_to_update.data = json.dumps({"image": img_result['image'], "smiles": img_result['smiles']})
+                                db.commit()
                         else:
                             tool_result_text = f"错误：{img_result.get('error')}"
                             query_prompt = f"生成结构图时出错：{tool_result_text}"
+
+                    elif action == "generate_3d_structure":
+                        logger.info(f"执行3D结构生成工具: {molecule}")
+                        sdf_result = await chemistry_service.generate_3d_structure(molecule)
+                        if sdf_result["success"]:
+                            tool_result_text = f"已生成 {molecule} 的3D结构数据 (SDF格式)。"
+                            query_prompt = f"请告诉用户 {molecule} 的3D结构已生成，并简要介绍该分子的立体化学特征。"
+                            
+                            # 更新消息数据 (3D SDF)
+                            msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+                            if msg_to_update:
+                                msg_to_update.message_type = "molecule"
+                                msg_to_update.data = json.dumps({"sdf": sdf_result['sdf'], "smiles": sdf_result['smiles']})
+                                db.commit()
+                        else:
+                            tool_result_text = f"错误：{sdf_result.get('error')}"
+                            query_prompt = f"生成3D结构时出错：{tool_result_text}"
                 
                 # 如果成功执行了工具，重新调用LLM
                 if tool_result_text:
@@ -298,9 +327,14 @@ async def chat(
                         max_tokens=request.max_tokens
                     )
                     
-                    # 更新数据库中的消息内容 (或者追加新消息，这里选择更新最后一条助手消息以保持对话整洁)
-                    assistant_msg.content = response_message
-                    db.commit()
+                    # 更新数据库中的消息内容
+                    # 重新获取消息对象以避免 "Instance has been deleted" 错误
+                    msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+                    if msg_to_update:
+                        msg_to_update.content = response_message
+                        db.commit()
+                    else:
+                        logger.error(f"无法找到消息 ID {assistant_msg_id} 进行更新")
                 else:
                     break # 工具执行未产生结果，跳出循环
 
@@ -315,11 +349,16 @@ async def chat(
 
         logger.info(f"聊天请求处理完成，耗时: {processing_time:.2f}秒")
 
+        # 获取最终的消息状态
+        final_msg = db.query(Message).filter(Message.id == assistant_msg_id).first()
+        
         return ChatResponse(
             message=response_message,
             conversation_id=conversation_id,
             sources=sources,
-            processing_time=processing_time
+            processing_time=processing_time,
+            message_type=final_msg.message_type if final_msg else "text",
+            data=json.loads(final_msg.data) if final_msg and final_msg.data else None
         )
 
         

@@ -2,6 +2,7 @@
   import { onMount, afterUpdate, onDestroy } from 'svelte';
   import ChatMessage from './components/ChatMessage.svelte';
   import ChatInput from './components/ChatInput.svelte';
+  import MediaModal from './components/MediaModal.svelte';
   import { messages, isLoading } from './stores/chat';
   import { api } from './lib/api';
   import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus, Github, Book } from 'lucide-svelte';
@@ -13,6 +14,17 @@
   let spectrumResult: any = null;
   let isAnalyzing = false;
   let analysisStatus = ''; 
+  
+  // Preview Modal State
+  let previewData: { type: 'image' | 'molecule', src?: string, sdf?: string } | null = null;
+
+  function handlePreview(event: CustomEvent) {
+    previewData = event.detail;
+  }
+
+  function closePreview() {
+    previewData = null;
+  } 
 
   let knowledgeFiles: FileList | null = null;
   let isUploading = false;
@@ -80,8 +92,8 @@
           const mappedMessages = conv.messages.map((msg: any) => ({
               role: msg.role,
               content: msg.content,
-              type: msg.message_type === 'image' ? 'image' : 'text',
-              data: msg.message_type === 'image' ? { imageUrl: msg.image_url } : undefined
+              type: msg.message_type, // Pass through 'molecule', 'image', 'text'
+              data: msg.data || (msg.message_type === 'image' ? { imageUrl: msg.image_url } : undefined)
           }));
 
           messages.setMessages(mappedMessages);
@@ -167,53 +179,19 @@
           await loadChatHistory(); // Refresh list
       }
 
-      messages.addMessage({ role: 'assistant', content: response.message || response }); // Handle varied backend responses
-
-      // 2. Simple Intent Detection for Chemistry Tools (Demo Logic)
-      // In a real app, the LLM would decide this via function calling.
-      // Here we look for simple keywords to trigger the "Chemistry Tool" visual
-      const lowerText = text.toLowerCase();
-      const isChemistryQuery = /molecule|structure|calculate|properties|结构|分子|属性/.test(lowerText);
-
-      // Extract potential molecule name (very naive, just assumes the last word or the whole query if short)
-      // A better way is to ask the LLM to extract the SMILES/Name.
-      // For this demo, we'll try to extract if the user says "Show me aspirin" -> "aspirin"
-      let moleculeName = "";
-      if (isChemistryQuery) {
-          // Naive extraction: try to find common chemical names or just use the query if short
-          const parts = text.split(' ');
-          moleculeName = parts[parts.length - 1].replace(/[?.!]/g, '');
-
-          // Or just try to get property for the whole query if it looks like a formula (e.g. "C6H6")
-          if (/^[A-Za-z0-9]+$/.test(text)) moleculeName = text;
+      // If the backend response contains data (e.g. from tool calls), use it
+      if (response.data || response.message_type === 'molecule') {
+          messages.addMessage({ 
+              role: 'assistant', 
+              content: response.message,
+              type: response.message_type,
+              data: response.data
+          });
+      } else {
+          messages.addMessage({ role: 'assistant', content: response.message || response });
       }
 
-      if (isChemistryQuery && moleculeName && moleculeName.length > 1) {
-          try {
-              // Parallel fetch for structure (3D & 2D) and properties
-              const [propsData, structData, struct3DData] = await Promise.all([
-                  api.calculateProperties(moleculeName).catch(e => null),
-                  api.generateStructure(moleculeName).catch(e => null),
-                  api.generate3DStructure(moleculeName).catch(e => null)
-              ]);
-
-              if ((propsData && propsData.success) || (structData && structData.success) || (struct3DData && struct3DData.success)) {
-                  messages.addMessage({
-                      role: 'assistant',
-                      content: `I analyzed **${moleculeName}** for you:`,
-                      type: 'molecule',
-                      data: {
-                          properties: propsData?.success ? propsData.properties : null,
-                          image: structData?.success ? structData.image : null,
-                          sdf: struct3DData?.success ? struct3DData.sdf : null
-                      }
-                  });
-              }
-          } catch (chemError) {
-              console.error("Chemistry tool error:", chemError);
-          }
-      }
-
+      // Client-side demo logic removed in favor of backend tool calls
     } catch (error) {
       messages.addMessage({
         role: 'assistant',
@@ -363,10 +341,10 @@
                         <FlaskConical size={48} class="mx-auto mb-4 opacity-50" />
                         <p class="text-lg">Ask me about chemical structures, reactions, or upload a spectrum.</p>
                         <div class="mt-6 flex flex-wrap justify-center gap-2">
-                            <button class="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm hover:bg-gray-50 transition" on:click={() => handleSend(new CustomEvent('send', { detail: 'Show me the structure of Aspirin' }))}>
+                            <button class="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm hover:bg-gray-50 transition" on:click={() => handleSend(new CustomEvent('send', { detail: { text: 'Show me the structure of Aspirin', file: null } }))}>
                                 Show me the structure of Aspirin
                             </button>
-                            <button class="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm hover:bg-gray-50 transition" on:click={() => handleSend(new CustomEvent('send', { detail: 'Calculate properties of Caffeine' }))}>
+                            <button class="px-3 py-1 bg-white border border-gray-200 rounded-full text-sm hover:bg-gray-50 transition" on:click={() => handleSend(new CustomEvent('send', { detail: { text: 'Calculate properties of Caffeine', file: null } }))}>
                                 Calculate properties of Caffeine
                             </button>
                         </div>
@@ -374,7 +352,7 @@
                     {/if}
 
                     {#each $messages as msg}
-                        <ChatMessage message={msg} />
+                        <ChatMessage message={msg} on:preview={handlePreview} />
                     {/each}
 
                     {#if $isLoading}
@@ -390,7 +368,7 @@
                 </div>
 
                 <!-- Input Area -->
-                <div class="bg-white border-t border-gray-200 p-4">
+                <div class="bg-white/80 backdrop-blur-sm p-4 pb-6">
                     <div class="max-w-3xl mx-auto">
                     <ChatInput on:send={handleSend} disabled={$isLoading} />
                     <p class="text-center text-xs text-gray-400 mt-2">
@@ -509,4 +487,13 @@
         {/if}
     </div>
   </main>
+
+  {#if previewData}
+    <MediaModal 
+      type={previewData.type} 
+      src={previewData.src || ''} 
+      sdf={previewData.sdf || ''} 
+      on:close={closePreview} 
+    />
+  {/if}
 </div>

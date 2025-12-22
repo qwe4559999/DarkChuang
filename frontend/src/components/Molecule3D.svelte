@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import * as $3Dmol from '3dmol';
+  import * as ThreeDMol from '3dmol';
 
   export let sdf: string;
   export let style: 'stick' | 'sphere' | 'line' = 'stick';
+  export let className = 'h-64';
   
   let container: HTMLElement;
   let viewer: any;
@@ -20,7 +21,7 @@
 
   function initViewer() {
     const config = { backgroundColor: 'white' };
-    viewer = $3Dmol.createViewer(container, config);
+    viewer = ThreeDMol.createViewer(container, config);
     updateModel();
   }
 
@@ -46,7 +47,7 @@
   }
 </script>
 
-<div class="relative w-full h-64 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+<div class={`relative w-full ${className} bg-gray-50 rounded-lg border border-gray-200 overflow-hidden`}>
   <div bind:this={container} class="w-full h-full"></div>
   
   <div class="absolute bottom-2 right-2 flex gap-1 bg-white/80 p-1 rounded shadow-sm backdrop-blur-sm">

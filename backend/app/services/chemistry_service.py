@@ -17,29 +17,52 @@ class ChemistryService:
     def get_molecule_from_string(self, molecule_string: str) -> Optional[Chem.Mol]:
         """从字符串（SMILES或名称）获取RDKit分子对象"""
         try:
-            # 尝试作为SMILES解析
-            mol = Chem.MolFromSmiles(molecule_string)
-            if mol:
-                return mol
+            molecule_string = molecule_string.strip()
+            
+            # 抑制 RDKit 错误日志
+            from rdkit import RDLogger
+            lg = RDLogger.logger()
+            lg.setLevel(RDLogger.CRITICAL)
+            
+            # 策略优化：
+            # 1. 检查常用名缓存
+            # 2. 尝试解析为 SMILES (如果看起来像 SMILES)
+            # 3. 尝试 PubChemPy 解析名称
+            # 4. 最后尝试强制解析为 SMILES (作为兜底)
 
-            # 如果不是有效的SMILES，尝试作为常用名解析
-            # 这里简单支持几个常见的
+            # 1. 常用名检查
             common_names = {
                 "aspirin": "CC(=O)OC1=CC=CC=C1C(=O)O",
                 "caffeine": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
                 "water": "O",
                 "ethanol": "CCO",
-                "benzene": "c1ccccc1"
+                "benzene": "c1ccccc1",
+                "methane": "C",
+                "ammonia": "N",
+                "carbon dioxide": "O=C=O",
+                "glucose": "C(C1C(C(C(C(O1)O)O)O)O)O"
             }
 
             if molecule_string.lower() in common_names:
                 return Chem.MolFromSmiles(common_names[molecule_string.lower()])
 
-            # 优先尝试使用PubChemPy解析名称
-            # 这样可以支持更多中文和英文名称
+            # 2. 启发式检查：如果包含空格，或者长度很短且全是字母，可能是名称而不是 SMILES
+            # SMILES 通常包含特殊字符 = # ( ) [ ] @ 等，或者数字
+            # 但简单的 SMILES 如 C, N, O 也是字母。
+            # 这里的逻辑是：如果看起来像名字，先查名字；否则先查 SMILES。
+            
+            is_likely_name = " " in molecule_string or (molecule_string.isalpha() and len(molecule_string) > 3)
+            
+            if not is_likely_name:
+                mol = Chem.MolFromSmiles(molecule_string)
+                if mol:
+                    return mol
+
+            # 3. PubChemPy 解析
             try:
                 import pubchempy as pcp
                 logger.info(f"尝试使用PubChemPy解析: {molecule_string}")
+                # 增加超时控制 (虽然 pcp 不直接支持，但我们可以捕获异常)
                 compounds = pcp.get_compounds(molecule_string, 'name')
                 if compounds:
                     smiles = compounds[0].isomeric_smiles
@@ -48,9 +71,22 @@ class ChemistryService:
             except ImportError:
                 logger.warning("PubChemPy未安装，无法从名称解析分子")
             except Exception as e:
-                logger.warning(f"PubChemPy解析失败: {str(e)}")
+                logger.warning(f"PubChemPy解析失败 (可能是网络问题): {str(e)}")
 
-            # 如果本地字典没有，尝试使用PubChemPy（如果安装了）
+            # 4. 如果前面都失败了，且之前没试过 SMILES (即被认为是名字但解析失败)，再试一次 SMILES
+            if is_likely_name:
+                 mol = Chem.MolFromSmiles(molecule_string)
+                 if mol:
+                     return mol
+
+            # 恢复 RDKit 日志
+            lg.setLevel(RDLogger.ERROR)
+
+            logger.warning(f"无法解析分子字符串: {molecule_string}")
+            return None
+
+            # 恢复 RDKit 日志
+            lg.setLevel(RDLogger.ERROR)
 
             logger.warning(f"无法解析分子字符串: {molecule_string}")
             return None

@@ -22,6 +22,7 @@ class Message(Base):
     content = Column(Text)
     message_type = Column(String, default="text") # text, image, molecule
     image_path = Column(String, nullable=True)
+    data = Column(Text, nullable=True) # JSON string for extra data (sdf, properties, etc.)
     created_at = Column(DateTime, default=datetime.now)
 
     conversation = relationship("Conversation", back_populates="messages")
