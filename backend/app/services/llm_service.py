@@ -138,6 +138,24 @@ class LLMService:
 2. 提供准确、安全、教育性的回答。
 3. 始终使用中文回答。
 4. 涉及危险化学品时必须提示安全风险。
+5. 当用户询问某个分子的结构、属性或要求绘制分子结构时，请以JSON格式输出工具调用请求，而不是直接回答。格式如下：
+```json
+{
+    "tool": "chemistry_tool",
+    "action": "calculate_properties",
+    "molecule": "Methamphetamine"
+}
+```
+或者
+```json
+{
+    "tool": "chemistry_tool",
+    "action": "generate_structure_image",
+    "molecule": "Methamphetamine"
+}
+```
+**重要提示：如果用户使用中文化学名称，请尽你所能将其翻译为标准的英文化学名称或SMILES字符串放在`molecule`字段中，以确保查询成功。**
+不要输出任何其他文本，只输出JSON。
 """
 
     def _build_user_prompt(self, query: str, context: str) -> str:

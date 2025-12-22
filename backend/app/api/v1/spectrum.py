@@ -6,7 +6,7 @@ import os
 import uuid
 from loguru import logger
 
-from app.services.image_service import ImageService
+from app.services.spectrum_service import SpectrumAnalysisService
 from app.core.config import settings
 from app.schemas.spectrum import (
     SpectrumAnalysisRequest,
@@ -19,7 +19,7 @@ from app.schemas.spectrum import (
 router = APIRouter(prefix="/spectrum", tags=["spectrum"])
 
 # 创建图像服务实例
-image_service = ImageService()
+image_service = SpectrumAnalysisService()
 
 @router.post("/analyze", response_model=SpectrumAnalysisResponse)
 async def analyze_spectrum(
@@ -29,25 +29,25 @@ async def analyze_spectrum(
 ):
     """
     分析单个光谱图像
-    
+
     Args:
         file: 上传的光谱图像文件
         spectrum_type: 光谱类型 (auto为自动识别, 或指定IR, NMR, UV, 红外, 核磁, 紫外等)
         additional_info: 额外的上下文信息
-    
+
     Returns:
         光谱分析结果
     """
     try:
         logger.info(f"接收到光谱分析请求: {spectrum_type}")
-        
+
         # 验证文件类型
         if not file.content_type.startswith('image/'):
             raise HTTPException(
                 status_code=400,
                 detail="只支持图像文件"
             )
-        
+
         # 验证光谱类型（允许auto自动识别）
         if spectrum_type.lower() != "auto":
             supported_types = image_service.get_supported_spectrum_types()
@@ -56,41 +56,41 @@ async def analyze_spectrum(
                     status_code=400,
                     detail=f"不支持的光谱类型: {spectrum_type}。支持的类型: auto(自动识别), {', '.join(supported_types)}"
                 )
-        
+
         # 保存上传的文件
         upload_dir = Path(settings.UPLOAD_DIR)
         upload_dir.mkdir(exist_ok=True)
-        
+
         file_extension = Path(file.filename).suffix
         unique_filename = f"{uuid.uuid4()}{file_extension}"
         file_path = upload_dir / unique_filename
-        
+
         # 写入文件
         with open(file_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
-        
+
         logger.info(f"文件已保存: {file_path}")
-        
+
         # 进行光谱分析
-        analysis_result = await image_service.analyze_spectrum_image(
+        analysis_result = await image_service.analyze_spectrum(
             image_path=str(file_path),
             spectrum_type=spectrum_type,
             additional_info=additional_info
         )
-        
+
         # 清理临时文件
         try:
             os.remove(file_path)
         except Exception as e:
             logger.warning(f"清理临时文件失败: {str(e)}")
-        
+
         if not analysis_result['success']:
             raise HTTPException(
                 status_code=500,
                 detail=f"光谱分析失败: {analysis_result.get('error', '未知错误')}"
             )
-        
+
         return SpectrumAnalysisResponse(
             success=True,
             spectrum_type=spectrum_type,
@@ -169,28 +169,28 @@ async def batch_analyze_spectrum(
                 file_extension = Path(file.filename).suffix
                 unique_filename = f"{uuid.uuid4()}{file_extension}"
                 file_path = upload_dir / unique_filename
-                
+
                 with open(file_path, "wb") as buffer:
                     content = await file.read()
                     buffer.write(content)
-                
+
                 file_paths.append(str(file_path))
-            
+
             logger.info(f"批量文件已保存: {len(file_paths)}个")
-            
+
             # 进行批量光谱分析
-            batch_result = await image_service.batch_analyze_spectrum_images(
+            batch_result = await image_service.batch_analyze_spectra(
                 image_paths=file_paths,
                 spectrum_types=spectrum_types,
                 additional_info=additional_info
             )
-            
+
             if not batch_result['success']:
                 raise HTTPException(
                     status_code=500,
                     detail=f"批量光谱分析失败: {batch_result.get('error', '未知错误')}"
                 )
-            
+
             return BatchSpectrumAnalysisResponse(
                 success=True,
                 total_count=batch_result['total_count'],
@@ -198,7 +198,7 @@ async def batch_analyze_spectrum(
                 results=batch_result['batch_results'],
                 message="批量光谱分析完成"
             )
-            
+
         finally:
             # 清理所有临时文件
             for file_path in file_paths:
@@ -227,7 +227,7 @@ async def get_supported_types():
     """
     try:
         spectrum_types = image_service.get_supported_spectrum_types()
-        image_formats = image_service.get_supported_image_formats()
+        image_formats = image_service.get_supported_formats()
         
         return SupportedTypesResponse(
             spectrum_types=spectrum_types,
@@ -248,31 +248,42 @@ async def visualize_analysis_result(
 ):
     """
     将分析结果进行可视化格式化
-    
+
     Args:
         analysis_data: 包含分析结果的JSON数据
-    
+
     Returns:
         格式化后的可视化分析结果
     """
     try:
         logger.info("接收到分析结果可视化请求")
-        
+
         # 使用图像服务来格式化分析结果
-        visualization_result = await image_service.visualize_analysis_result(analysis_data)
-        
-        if not visualization_result['success']:
-            raise HTTPException(
-                status_code=500,
-                detail=f"结果可视化失败: {visualization_result.get('error', '未知错误')}"
-            )
-        
+        visualization_result = await image_service.format_analysis_for_visualization(analysis_data)
+
+        # 处理返回结果，确保它是字典格式
+        if isinstance(visualization_result, dict) and 'visualization' not in visualization_result:
+            # 如果返回的是直接的可视化数据，包装一下
+            visualization_result = {
+                'success': True,
+                'visualization': visualization_result
+            }
+        elif isinstance(visualization_result, dict) and 'visualization' in visualization_result:
+             # 已经是正确的格式
+             visualization_result['success'] = True
+        else:
+             # 其他情况，作为可视化内容
+             visualization_result = {
+                'success': True,
+                'visualization': visualization_result
+             }
+
         return JSONResponse(content={
             "success": True,
             "visualization": visualization_result['visualization'],
             "message": "分析结果可视化完成"
         })
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -296,7 +307,7 @@ async def health_check():
             "status": "healthy",
             "service": "spectrum_analysis",
             "supported_types": len(image_service.get_supported_spectrum_types()),
-            "supported_formats": len(image_service.get_supported_image_formats())
+            "supported_formats": len(image_service.get_supported_formats())
         }
         
         return JSONResponse(content=status)

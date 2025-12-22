@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.api import chat, health, chemistry
+from app.api import chat, health, chemistry, knowledge
 from app.api.v1 import spectrum
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -35,6 +35,7 @@ app.include_router(health.router, prefix="/api/v1", tags=["健康检查"])
 app.include_router(chat.router, prefix="/api/v1", tags=["问答聊天"])
 app.include_router(spectrum.router, prefix="/api/v1", tags=["光谱分析"])
 app.include_router(chemistry.router, prefix="/api/v1/chemistry", tags=["化学工具"])
+app.include_router(knowledge.router, prefix="/api/v1", tags=["知识库管理"])
 
 @app.get("/")
 async def root():

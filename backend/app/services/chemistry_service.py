@@ -20,9 +20,36 @@ class ChemistryService:
             if mol:
                 return mol
 
-            # 如果不是有效的SMILES，这里暂时不支持直接从名称转换
-            # 实际项目中可以集成PubChemPy或其他API来支持名称转SMILES
-            # 这里简单返回None
+            # 如果不是有效的SMILES，尝试作为常用名解析
+            # 这里简单支持几个常见的
+            common_names = {
+                "aspirin": "CC(=O)OC1=CC=CC=C1C(=O)O",
+                "caffeine": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+                "water": "O",
+                "ethanol": "CCO",
+                "benzene": "c1ccccc1"
+            }
+
+            if molecule_string.lower() in common_names:
+                return Chem.MolFromSmiles(common_names[molecule_string.lower()])
+
+            # 优先尝试使用PubChemPy解析名称
+            # 这样可以支持更多中文和英文名称
+            try:
+                import pubchempy as pcp
+                logger.info(f"尝试使用PubChemPy解析: {molecule_string}")
+                compounds = pcp.get_compounds(molecule_string, 'name')
+                if compounds:
+                    smiles = compounds[0].isomeric_smiles
+                    logger.info(f"PubChemPy解析成功: {molecule_string} -> {smiles}")
+                    return Chem.MolFromSmiles(smiles)
+            except ImportError:
+                logger.warning("PubChemPy未安装，无法从名称解析分子")
+            except Exception as e:
+                logger.warning(f"PubChemPy解析失败: {str(e)}")
+
+            # 如果本地字典没有，尝试使用PubChemPy（如果安装了）
+
             logger.warning(f"无法解析分子字符串: {molecule_string}")
             return None
 
