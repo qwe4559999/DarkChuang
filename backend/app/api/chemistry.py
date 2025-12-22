@@ -51,3 +51,21 @@ async def generate_structure_image(
     except Exception as e:
         logger.error(f"结构图生成API错误: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/structure-3d")
+async def generate_3d_structure(
+    request: PropertyRequest,
+    service: ChemistryService = Depends(get_chemistry_service)
+):
+    """生成分子3D结构数据 (SDF)"""
+    try:
+        result = await service.generate_3d_structure(request.molecule)
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["error"])
+        return result
+    except Exception as e:
+        logger.error(f"3D结构生成API错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"结构图生成API错误: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

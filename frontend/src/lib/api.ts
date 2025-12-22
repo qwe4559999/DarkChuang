@@ -63,6 +63,18 @@ export const api = {
         return response.json();
     },
 
+    async generate3DStructure(molecule: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/chemistry/structure-3d`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ molecule }),
+        });
+        if (!response.ok) throw new Error('Failed to generate 3D structure');
+        return response.json();
+    },
+
     async uploadSpectrum(file: File, type: string = 'auto', additionalInfo: string = ''): Promise<any> {
         const formData = new FormData();
         formData.append('file', file);

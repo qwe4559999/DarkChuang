@@ -1,6 +1,7 @@
 <script lang="ts">
   import { marked } from 'marked';
   import type { Message } from '../lib/api';
+  import Molecule3D from './Molecule3D.svelte';
 
   export let message: Message;
 
@@ -31,7 +32,13 @@
     <!-- Molecule Display -->
     {#if message.type === 'molecule' && message.data}
       <div class="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
-        {#if message.data.image}
+        <!-- 3D Structure -->
+        {#if message.data.sdf}
+          <div class="mb-3">
+             <Molecule3D sdf={message.data.sdf} />
+          </div>
+        {:else if message.data.image}
+           <!-- 2D Fallback -->
            <!-- svelte-ignore a11y-img-redundant-alt -->
           <img src={message.data.image} alt="Molecule Structure" class="mx-auto mb-2 max-h-48" />
         {/if}

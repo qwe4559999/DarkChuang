@@ -93,6 +93,57 @@ class ChemistryService:
                 "error": str(e)
             }
 
+    async def generate_3d_structure(self, molecule_string: str) -> Dict[str, Any]:
+        """生成分子3D结构数据 (SDF格式)"""
+        try:
+            mol = self.get_molecule_from_string(molecule_string)
+            if not mol:
+                return {
+                    "success": False,
+                    "error": "无效的SMILES或无法识别的分子"
+                }
+
+            # 添加氢原子 (3D结构必须)
+            mol_3d = Chem.AddHs(mol)
+            
+            # 生成3D构象
+            # 使用ETKDG算法生成初始构象
+            params = AllChem.ETKDGv3()
+            params.randomSeed = 0xf00d  # 固定种子以获得可重复结果
+            res = AllChem.EmbedMolecule(mol_3d, params)
+            
+            if res == -1:
+                # 如果生成失败，尝试更宽松的参数
+                res = AllChem.EmbedMolecule(mol_3d, useRandomCoords=True)
+                if res == -1:
+                     return {
+                        "success": False,
+                        "error": "无法生成3D构象"
+                    }
+            
+            # 能量最小化 (优化结构)
+            try:
+                AllChem.MMFFOptimizeMolecule(mol_3d)
+            except:
+                # 如果MMFF失败，尝试UFF
+                AllChem.UFFOptimizeMolecule(mol_3d)
+
+            # 转换为SDF格式字符串
+            sdf_block = Chem.MolToMolBlock(mol_3d)
+
+            return {
+                "success": True,
+                "sdf": sdf_block,
+                "smiles": Chem.MolToSmiles(mol)
+            }
+
+        except Exception as e:
+            logger.error(f"生成3D结构失败: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
     async def generate_structure_image(self, molecule_string: str, width: int = 400, height: int = 400) -> Dict[str, Any]:
         """生成分子2D结构图"""
         try:

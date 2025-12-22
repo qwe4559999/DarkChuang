@@ -190,20 +190,22 @@
 
       if (isChemistryQuery && moleculeName && moleculeName.length > 1) {
           try {
-              // Parallel fetch for structure and properties
-              const [propsData, structData] = await Promise.all([
+              // Parallel fetch for structure (3D & 2D) and properties
+              const [propsData, structData, struct3DData] = await Promise.all([
                   api.calculateProperties(moleculeName).catch(e => null),
-                  api.generateStructure(moleculeName).catch(e => null)
+                  api.generateStructure(moleculeName).catch(e => null),
+                  api.generate3DStructure(moleculeName).catch(e => null)
               ]);
 
-              if ((propsData && propsData.success) || (structData && structData.success)) {
+              if ((propsData && propsData.success) || (structData && structData.success) || (struct3DData && struct3DData.success)) {
                   messages.addMessage({
                       role: 'assistant',
                       content: `I analyzed **${moleculeName}** for you:`,
                       type: 'molecule',
                       data: {
                           properties: propsData?.success ? propsData.properties : null,
-                          image: structData?.success ? structData.image : null
+                          image: structData?.success ? structData.image : null,
+                          sdf: struct3DData?.success ? struct3DData.sdf : null
                       }
                   });
               }
