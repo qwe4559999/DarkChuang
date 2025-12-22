@@ -380,3 +380,5 @@ docker-compose.override.yml
 .env.development.local
 .env.test.local
 .env.production.local
+# Generated structure images
+backend/static/structures/
