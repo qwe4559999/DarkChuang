@@ -4,7 +4,7 @@
   import ChatInput from './components/ChatInput.svelte';
   import { messages, isLoading } from './stores/chat';
   import { api } from './lib/api';
-  import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus } from 'lucide-svelte';
+  import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus, Github, Book } from 'lucide-svelte';
 
   let chatContainer: HTMLElement;
   let activeTab = 'chat'; // 'chat', 'knowledge'
@@ -320,6 +320,18 @@
               </div>
           </div>
       </nav>
+
+      <!-- Footer Links -->
+      <div class="p-4 border-t border-gray-100 bg-gray-50">
+          <div class="flex justify-around">
+              <a href="https://github.com/qwe4559999/DarkChuang" target="_blank" rel="noopener noreferrer" class="p-2 text-gray-500 hover:text-gray-800 transition-colors" title="GitHub Repository">
+                  <Github size={20} />
+              </a>
+              <a href="https://github.com/qwe4559999/DarkChuang/tree/main/docs" target="_blank" rel="noopener noreferrer" class="p-2 text-gray-500 hover:text-blue-600 transition-colors" title="Documentation">
+                  <Book size={20} />
+              </a>
+          </div>
+      </div>
   </aside>
 
   <!-- Main Content -->
