@@ -22,7 +22,7 @@ export const api = {
         return response.json();
     },
 
-    async sendMessage(message: string, imagePath?: string): Promise<any> {
+    async sendMessage(message: string, imagePath?: string, conversationId?: string): Promise<any> {
         const response = await fetch(`${API_BASE_URL}/chat`, {
             method: 'POST',
             headers: {
@@ -31,7 +31,8 @@ export const api = {
             body: JSON.stringify({ 
                 message, 
                 use_rag: true,
-                image_path: imagePath
+                image_path: imagePath,
+                conversation_id: conversationId
             }),
         });
         if (!response.ok) throw new Error('Network response was not ok');
@@ -96,6 +97,32 @@ export const api = {
         });
 
         if (!response.ok) throw new Error('Failed to upload documents');
+        return response.json();
+    },
+
+    async getKnowledgeFiles(): Promise<any[]> {
+        const response = await fetch(`${API_BASE_URL}/knowledge/files`);
+        if (!response.ok) throw new Error('Failed to fetch knowledge files');
+        return response.json();
+    },
+
+    async deleteKnowledgeFile(fileId: number): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/knowledge/files/${fileId}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete file');
+        return response.json();
+    },
+
+    async getChatHistory(): Promise<any[]> {
+        const response = await fetch(`${API_BASE_URL}/chat/history`);
+        if (!response.ok) throw new Error('Failed to fetch chat history');
+        return response.json();
+    },
+
+    async getConversation(conversationId: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/chat/history/${conversationId}`);
+        if (!response.ok) throw new Error('Failed to fetch conversation');
         return response.json();
     },
 
