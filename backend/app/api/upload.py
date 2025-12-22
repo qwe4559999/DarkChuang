@@ -33,7 +33,7 @@ async def upload_image(file: UploadFile = File(...)):
         return {
             "filename": filename,
             "file_path": str(file_path.absolute()),
-            "url": f"/static/uploads/chat_images/{filename}" # Assuming static mount
+            "url": f"/uploads/chat_images/{filename}"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
