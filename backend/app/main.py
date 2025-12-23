@@ -38,6 +38,8 @@ app.add_middleware(
 
 # 确保上传目录存在
 os.makedirs("data/uploads", exist_ok=True)
+# 确保静态目录存在
+os.makedirs("static", exist_ok=True)
 
 # 静态文件服务
 app.mount("/static", StaticFiles(directory="static"), name="static")
