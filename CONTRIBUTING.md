@@ -15,8 +15,8 @@
 在开始贡献之前，请：
 
 1. 阅读我们的 [行为准则](#行为准则)
-2. 查看 [现有的 Issues](https://github.com/your-repo/issues)
-3. 搜索相关的 [Pull Requests](https://github.com/your-repo/pulls)
+2. 查看 [现有的 Issues](https://github.com/qwe4559999/DarkChuang/issues)
+3. 搜索相关的 [Pull Requests](https://github.com/qwe4559999/DarkChuang/pulls)
 4. 阅读项目的 [README.md](README.md)
 
 ## 如何贡献
@@ -64,7 +64,7 @@
    ```bash
    # 在 GitHub 上 Fork 项目
    # 然后克隆您的 Fork
-   git clone https://github.com/your-username/DarkChuang.git
+   git clone https://github.com/qwe4559999/DarkChuang.git
    cd DarkChuang
    ```
 
@@ -401,7 +401,7 @@ open docs/index.html
 
 ### 贡献者
 
-- 查看 [贡献者列表](https://github.com/your-repo/graphs/contributors)
+- 查看 [贡献者列表](https://github.com/qwe4559999/DarkChuang/graphs/contributors)
 
 ### 特别感谢
 
