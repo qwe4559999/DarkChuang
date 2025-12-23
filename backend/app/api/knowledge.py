@@ -164,7 +164,7 @@ async def process_documents(rag_service: RAGService, files_info: List[Dict], db:
         logger.info(f"开始后台处理 {len(files_info)} 个文档")
 
         from langchain_community.document_loaders import PyPDFLoader, TextLoader
-        from langchain.schema import Document
+        from langchain_core.documents import Document
 
         for info in files_info:
             file_path = info["path"]

@@ -382,3 +382,5 @@ docker-compose.override.yml
 .env.production.local
 # Generated structure images
 backend/static/structures/
+
+backend/uploads/

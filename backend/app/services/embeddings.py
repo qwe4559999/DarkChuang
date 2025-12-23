@@ -1,6 +1,6 @@
 from typing import List, Optional, Any
 from langchain_core.embeddings import Embeddings
-from langchain_core.pydantic_v1 import BaseModel, SecretStr, Field
+from pydantic import BaseModel, SecretStr, Field
 import openai
 import os
 

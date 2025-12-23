@@ -56,11 +56,22 @@
 
 ## 快速开始
 
-### 🚀 一键启动 (Windows)
-项目根目录提供了便捷的启动脚本，双击运行即可同时启动前后端服务：
+### 🚀 一键启动 (Windows / macOS / Linux) - 推荐
+项目根目录提供了智能启动脚本，**自动完成环境配置和依赖安装**，实现开箱即用：
+
+**Windows 用户:**
+1. 确保已安装 **Python 3.10+** 和 **Node.js**。
+2. 双击运行 `start_dev.bat`。
+
+**macOS / Linux 用户:**
+1. 确保已安装 **Python 3** 和 **Node.js**。
+2. 在终端运行：
 ```bash
-.\start_dev.bat
+chmod +x start_dev.sh
+./start_dev.sh
 ```
+
+脚本将自动检测环境、创建虚拟环境、安装 Python/Node 依赖（自动配置国内源）、生成配置文件并启动服务。
 
 ### 手动启动步骤
 
