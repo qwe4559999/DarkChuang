@@ -3,14 +3,29 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+    conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
+
 class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(String, primary_key=True, index=True)
     title = Column(String, index=True, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # nullable for backward compatibility or anonymous
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
+    user = relationship("User", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
 
 class Message(Base):

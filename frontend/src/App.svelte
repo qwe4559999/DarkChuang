@@ -3,9 +3,12 @@
   import ChatMessage from './components/ChatMessage.svelte';
   import ChatInput from './components/ChatInput.svelte';
   import MediaModal from './components/MediaModal.svelte';
+  import Login from './components/Login.svelte';
+  import Register from './components/Register.svelte';
   import { messages, isLoading } from './stores/chat';
+  import { auth, logout } from './stores/auth';
   import { api } from './lib/api';
-  import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus, Github, Book } from 'lucide-svelte';
+  import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus, Github, Book, LogOut, User } from 'lucide-svelte';
 
   let chatContainer: HTMLElement;
   let activeTab = 'chat'; // 'chat', 'knowledge'
@@ -15,6 +18,9 @@
   let isAnalyzing = false;
   let analysisStatus = ''; 
   
+  // Auth State
+  let authView: 'login' | 'register' = 'login';
+
   // Preview Modal State
   let previewData: { type: 'image' | 'molecule', src?: string, sdf?: string } | null = null;
 
@@ -46,8 +52,19 @@
   });
 
   onMount(async () => {
-      await loadChatHistory();
+      if ($auth.isAuthenticated) {
+          await loadChatHistory();
+      }
   });
+
+  // React to auth changes
+  $: if ($auth.isAuthenticated) {
+      loadChatHistory();
+  } else {
+      chatHistory = [];
+      messages.clear();
+      currentConversationId = null;
+  }
 
   onDestroy(() => {
       stopPolling();
@@ -165,7 +182,7 @@
   }
 
   // Watch activeTab to load files
-  $: if (activeTab === 'knowledge') {
+  $: if (activeTab === 'knowledge' && $auth.isAuthenticated) {
       loadKnowledgeFiles();
       loadKnowledgeStats();
       startPolling();
@@ -272,6 +289,7 @@
   }
 </script>
 
+{#if $auth.isAuthenticated}
 <div class="flex h-screen bg-gray-100">
   <!-- Sidebar -->
   <aside class="w-64 bg-white shadow-md flex flex-col z-20">
@@ -281,6 +299,25 @@
               <span>DarkChuang</span>
           </div>
           <p class="text-xs text-gray-400 mt-1 ml-8">AI Chemistry Assistant</p>
+      </div>
+
+      <div class="p-4 border-b border-gray-100 bg-gray-50/50">
+          <div class="flex items-center gap-3 mb-2">
+              <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <User size={16} />
+              </div>
+              <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900 truncate">{$auth.user?.full_name || 'User'}</p>
+                  <p class="text-xs text-gray-500 truncate">{$auth.user?.email}</p>
+              </div>
+          </div>
+          <button 
+              class="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+              on:click={logout}
+          >
+              <LogOut size={14} />
+              Sign Out
+          </button>
       </div>
 
       <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -546,3 +583,22 @@
     />
   {/if}
 </div>
+{:else}
+<div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="flex items-center justify-center gap-2 text-blue-600 font-bold text-3xl mb-2">
+        <FlaskConical size={32} />
+        <span>DarkChuang</span>
+      </div>
+      <p class="text-gray-500">Your AI Chemistry Research Assistant</p>
+    </div>
+
+    {#if authView === 'login'}
+      <Login on:success={() => {}} on:switch={() => authView = 'register'} />
+    {:else}
+      <Register on:success={() => authView = 'login'} on:switch={() => authView = 'login'} />
+    {/if}
+  </div>
+</div>
+{/if}

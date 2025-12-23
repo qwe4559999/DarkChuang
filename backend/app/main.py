@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
-from app.api import chat, health, chemistry, knowledge, upload
+from app.api import chat, health, chemistry, knowledge, upload, auth
 from app.api.v1 import spectrum
 from app.core.config import settings
 from app.core.logging import setup_logging
@@ -50,6 +50,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="data/uploads"), name="uploads")
 
 # 注册路由
+app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
 app.include_router(health.router, prefix="/api/v1", tags=["健康检查"])
 app.include_router(chat.router, prefix="/api/v1/chat", tags=["问答聊天"])
 app.include_router(upload.router, prefix="/api/v1", tags=["文件上传"])

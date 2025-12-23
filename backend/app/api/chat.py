@@ -60,7 +60,8 @@ class ConversationHistory(BaseModel):
 
 from sqlalchemy.orm import Session
 from app.db.base import get_db
-from app.models.sql_models import Conversation, Message
+from app.models.sql_models import Conversation, Message, User
+from app.api import deps
 
 # 依赖注入
 def get_rag_service() -> RAGService:
@@ -73,9 +74,12 @@ def get_chemistry_service() -> ChemistryService:
     return ChemistryService()
 
 @router.get("/history", response_model=List[ConversationHistory])
-async def get_chat_history(db: Session = Depends(get_db)):
+async def get_chat_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
     """获取所有对话历史"""
-    conversations = db.query(Conversation).order_by(Conversation.updated_at.desc()).all()
+    conversations = db.query(Conversation).filter(Conversation.user_id == current_user.id).order_by(Conversation.updated_at.desc()).all()
     result = []
     for conv in conversations:
         msgs = [
@@ -98,9 +102,13 @@ async def get_chat_history(db: Session = Depends(get_db)):
     return result
 
 @router.get("/history/{conversation_id}", response_model=ConversationHistory)
-async def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
+async def get_conversation(
+    conversation_id: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
     """获取指定对话详情"""
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == current_user.id).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
@@ -128,7 +136,8 @@ async def chat(
     rag_service: RAGService = Depends(get_rag_service),
     llm_service: LLMService = Depends(get_llm_service),
     chemistry_service: ChemistryService = Depends(get_chemistry_service),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
 ):
     """处理聊天请求"""
     start_time = datetime.now()
@@ -142,10 +151,13 @@ async def chat(
         # 确保对话存在于数据库
         db_conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
         if not db_conv:
-            db_conv = Conversation(id=conversation_id, title=request.message[:50])
+            db_conv = Conversation(id=conversation_id, title=request.message[:50], user_id=current_user.id)
             db.add(db_conv)
             db.commit()
             db.refresh(db_conv)
+        elif db_conv.user_id != current_user.id:
+             # 如果对话存在但不属于当前用户 (理论上不应该发生，除非ID冲突)
+             raise HTTPException(status_code=403, detail="Not authorized to access this conversation")
 
         # 保存用户消息
         user_msg = Message(
@@ -442,9 +454,13 @@ async def chat(
         raise HTTPException(status_code=500, detail=f"处理聊天请求时发生错误: {str(e)}")
 
 @router.delete("/history/{conversation_id}")
-async def delete_conversation(conversation_id: str, db: Session = Depends(get_db)):
+async def delete_conversation(
+    conversation_id: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
     """删除对话"""
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id, Conversation.user_id == current_user.id).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
