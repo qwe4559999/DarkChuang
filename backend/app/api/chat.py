@@ -288,7 +288,7 @@ async def chat(
                         if img_result["success"]:
                             image_markdown = f"![{molecule}]({img_result['image']})"
                             tool_result_text = f"已生成 {molecule} 的结构图: {image_markdown}\nSMILES: {img_result['smiles']}"
-                            query_prompt = f"请根据上下文中的分析结果，详细解释为什么推断出是 {molecule}，并展示生成的结构图。结构图信息：{tool_result_text}"
+                            query_prompt = f"【系统指令】结构图已成功生成（见下文）。请直接向用户展示该图片并解释推断理由。严禁再次调用 'generate_structure_image' 工具！\n\n结构图信息：{tool_result_text}"
                             
                             # 更新消息数据 (2D图)
                             msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
@@ -304,7 +304,7 @@ async def chat(
                         sdf_result = await chemistry_service.generate_3d_structure(molecule)
                         if sdf_result["success"]:
                             tool_result_text = f"已生成 {molecule} 的3D结构数据 (SDF格式)。"
-                            query_prompt = f"请告诉用户 {molecule} 的3D结构已生成，并简要介绍该分子的立体化学特征。"
+                            query_prompt = f"【系统指令】3D结构已成功生成。请告诉用户 {molecule} 的3D结构已准备好，并简要介绍该分子的立体化学特征。严禁再次调用 'generate_3d_structure' 工具！"
                             
                             # 更新消息数据 (3D SDF)
                             msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()

@@ -123,12 +123,30 @@
         {/if}
 
         {#if message.data.properties}
-          <div class="grid grid-cols-2 gap-2 text-xs">
+          {#if message.data.properties.drug_likeness}
+             <div class="mb-2 flex items-center justify-between p-2 rounded bg-gray-50 border border-gray-100">
+                <div class="flex flex-col">
+                    <span class="text-xs font-bold text-gray-700">Drug Likeness Score</span>
+                    <span class="text-[10px] text-gray-500">Based on Lipinski's Rule of 5</span>
+                </div>
+                <div class={`px-3 py-1 rounded-full text-xs font-bold ${
+                    message.data.properties.drug_likeness === 'High' ? 'bg-green-100 text-green-700 border border-green-200' :
+                    message.data.properties.drug_likeness === 'Moderate' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                    'bg-red-100 text-red-700 border border-red-200'
+                }`}>
+                    {message.data.properties.drug_likeness}
+                </div>
+             </div>
+          {/if}
+
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             {#each Object.entries(message.data.properties) as [key, value]}
-              <div class="flex justify-between">
-                <span class="font-medium text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
-                <span class="font-mono text-gray-800">{value}</span>
-              </div>
+              {#if key !== 'drug_likeness'}
+                  <div class="flex justify-between items-center py-0.5 border-b border-gray-50 last:border-0">
+                    <span class="font-medium text-gray-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                    <span class="font-mono text-gray-800">{value}</span>
+                  </div>
+              {/if}
             {/each}
           </div>
         {/if}

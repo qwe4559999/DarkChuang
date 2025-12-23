@@ -18,6 +18,7 @@ class ChemistryService:
         """从字符串（SMILES或名称）获取RDKit分子对象"""
         try:
             molecule_string = molecule_string.strip()
+            logger.info(f"解析分子字符串: {repr(molecule_string)}")
             
             # 抑制 RDKit 错误日志
             from rdkit import RDLogger
@@ -33,6 +34,7 @@ class ChemistryService:
             # 1. 常用名检查
             common_names = {
                 "aspirin": "CC(=O)OC1=CC=CC=C1C(=O)O",
+                "acetylsalicylic acid": "CC(=O)OC1=CC=CC=C1C(=O)O",
                 "caffeine": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
                 "water": "O",
                 "ethanol": "CCO",
@@ -40,11 +42,16 @@ class ChemistryService:
                 "methane": "C",
                 "ammonia": "N",
                 "carbon dioxide": "O=C=O",
-                "glucose": "C(C1C(C(C(C(O1)O)O)O)O)O"
+                "glucose": "C(C1C(C(C(C(O1)O)O)O)O)O",
+                "paracetamol": "CC(=O)NC1=CC=C(O)C=C1",
+                "acetaminophen": "CC(=O)NC1=CC=C(O)C=C1",
+                "ibuprofen": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"
             }
 
-            if molecule_string.lower() in common_names:
-                return Chem.MolFromSmiles(common_names[molecule_string.lower()])
+            key = molecule_string.lower()
+            if key in common_names:
+                logger.info(f"命中常用名缓存: {key}")
+                return Chem.MolFromSmiles(common_names[key])
 
             # 2. 启发式检查：如果包含空格，或者长度很短且全是字母，可能是名称而不是 SMILES
             # SMILES 通常包含特殊字符 = # ( ) [ ] @ 等，或者数字
@@ -52,6 +59,7 @@ class ChemistryService:
             # 这里的逻辑是：如果看起来像名字，先查名字；否则先查 SMILES。
             
             is_likely_name = " " in molecule_string or (molecule_string.isalpha() and len(molecule_string) > 3)
+            logger.info(f"启发式检查 is_likely_name: {is_likely_name}")
             
             if not is_likely_name:
                 mol = Chem.MolFromSmiles(molecule_string)
@@ -106,14 +114,38 @@ class ChemistryService:
                 }
 
             # 计算属性
+            mw = round(Descriptors.MolWt(mol), 4)
+            logp = round(Descriptors.MolLogP(mol), 4)
+            hbd = Descriptors.NumHDonors(mol)
+            hba = Descriptors.NumHAcceptors(mol)
+            tpsa = round(Descriptors.TPSA(mol), 4)
+            rotatable_bonds = Descriptors.NumRotatableBonds(mol)
+
+            # Lipinski Rule of 5 Calculation
+            lipinski_violations = 0
+            if mw > 500: lipinski_violations += 1
+            if logp > 5: lipinski_violations += 1
+            if hbd > 5: lipinski_violations += 1
+            if hba > 10: lipinski_violations += 1
+
+            # Drug Likeness Score (Simple heuristic)
+            if lipinski_violations == 0:
+                drug_likeness = "High"
+            elif lipinski_violations == 1:
+                drug_likeness = "Moderate"
+            else:
+                drug_likeness = "Low"
+
             properties = {
-                "molecular_weight": round(Descriptors.MolWt(mol), 4),
-                "logp": round(Descriptors.MolLogP(mol), 4),
-                "h_bond_donors": Descriptors.NumHDonors(mol),
-                "h_bond_acceptors": Descriptors.NumHAcceptors(mol),
-                "tpsa": round(Descriptors.TPSA(mol), 4),
-                "num_rotatable_bonds": Descriptors.NumRotatableBonds(mol),
-                "formula": Chem.rdMolDescriptors.CalcMolFormula(mol)
+                "molecular_weight": mw,
+                "logp": logp,
+                "h_bond_donors": hbd,
+                "h_bond_acceptors": hba,
+                "tpsa": tpsa,
+                "num_rotatable_bonds": rotatable_bonds,
+                "formula": Chem.rdMolDescriptors.CalcMolFormula(mol),
+                "lipinski_violations": lipinski_violations,
+                "drug_likeness": drug_likeness
             }
 
             return {

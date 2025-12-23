@@ -5,6 +5,22 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 并且本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.3.0] - 2025-12-23
+
+### 新增
+- 💊 **药物潜力预测**
+  - 新增 Lipinski 五规则 (Rule of Five) 计算逻辑。
+  - 自动评估分子的成药性 (Drug Likeness Score)，并给出 High/Moderate/Low 评级。
+  - 前端新增可视化的药物潜力评分卡片，直观展示评估结果。
+
+### 改进
+- 🧠 **智能结构识别**
+  - 优化了分子名称解析逻辑，扩展了常用药物名称缓存（如 Aspirin, Paracetamol, Ibuprofen 等）。
+  - 修复了部分药物名称无法正确解析为 SMILES 的问题。
+- 🔄 **工具调用逻辑**
+  - 优化了 LLM 的 System Prompt，现在询问结构时会默认同时生成 2D 和 3D 结构图。
+  - 修复了工具调用可能导致的死循环问题，增加了明确的系统指令防止重复调用。
+
 ## [2.2.1] - 2025-12-23
 
 ### 修复

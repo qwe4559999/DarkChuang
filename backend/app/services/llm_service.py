@@ -225,7 +225,7 @@ class LLMService:
 }
 ```
 **重要提示：如果用户使用中文化学名称，请尽你所能将其翻译为标准的英文化学名称或SMILES字符串放在`molecule`字段中，以确保查询成功。**
-**如果用户明确要求查看3D结构、立体结构或空间构型，请优先使用 `generate_3d_structure`。**
+**当用户要求“展示结构”、“画出结构”或“查看结构”时，请同时调用 `generate_structure_image` (2D) 和 `generate_3d_structure` (3D) 两个工具，或者优先调用 `generate_3d_structure` 以提供更丰富的体验。**
 不要输出任何其他文本，只输出JSON。
 """
 
