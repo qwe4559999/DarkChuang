@@ -146,6 +146,14 @@ export const api = {
         return response.json();
     },
 
+    async resetKnowledgeBase(): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/knowledge/reset`, {
+            method: 'POST',
+        });
+        if (!response.ok) throw new Error('Failed to reset knowledge base');
+        return response.json();
+    },
+
     async getKnowledgeBaseStats(): Promise<any> {
         const response = await fetch(`${API_BASE_URL}/knowledge/stats`);
         if (!response.ok) throw new Error('Failed to get stats');

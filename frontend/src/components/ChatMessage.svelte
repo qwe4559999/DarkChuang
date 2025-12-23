@@ -88,7 +88,7 @@
     </div>
 
     <!-- Molecule Display -->
-    {#if message.type === 'molecule' && message.data}
+    {#if (message.type === 'molecule' || (message.data && message.data.properties)) && message.data}
       <div class="mt-3 p-3 bg-gray-50 rounded border border-gray-200">
         <!-- 3D Structure -->
         {#if message.data.sdf}

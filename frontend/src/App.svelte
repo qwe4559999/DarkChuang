@@ -30,6 +30,7 @@
   let isUploading = false;
   let uploadStatus = '';
   let uploadedFilesList: any[] = [];
+  let knowledgeStats: any = null;
   let chatHistory: any[] = [];
   let currentConversationId: string | null = null;
   let pollingInterval: any = null;
@@ -57,6 +58,7 @@
       pollingInterval = setInterval(async () => {
           if (activeTab === 'knowledge') {
               await loadKnowledgeFiles();
+              await loadKnowledgeStats();
               // If no files are pending, we could potentially stop polling, 
               // but keeping it active while in the tab is safer for now.
               const hasPending = uploadedFilesList.some(f => f.status === 'pending');
@@ -71,6 +73,26 @@
       if (pollingInterval) {
           clearInterval(pollingInterval);
           pollingInterval = null;
+      }
+  }
+
+  async function handleResetKnowledge() {
+      if (!confirm('Are you sure you want to clear the entire knowledge base? This cannot be undone.')) return;
+      try {
+          await api.resetKnowledgeBase();
+          await loadKnowledgeFiles();
+          await loadKnowledgeStats();
+          alert('Knowledge base reset successfully.');
+      } catch (e: any) {
+          alert('Failed to reset knowledge base: ' + e.message);
+      }
+  }
+
+  async function loadKnowledgeStats() {
+      try {
+          knowledgeStats = await api.getKnowledgeBaseStats();
+      } catch (e) {
+          console.error("Failed to load stats", e);
       }
   }
 
@@ -145,6 +167,7 @@
   // Watch activeTab to load files
   $: if (activeTab === 'knowledge') {
       loadKnowledgeFiles();
+      loadKnowledgeStats();
       startPolling();
   } else {
       stopPolling();
@@ -384,10 +407,36 @@
         {#if activeTab === 'knowledge'}
             <div class="h-full overflow-y-auto p-8">
                 <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-sm p-8">
-                    <div class="mb-8">
-                        <h3 class="text-2xl font-bold text-gray-800">Knowledge Base Management</h3>
-                        <p class="text-gray-500 mt-2">Upload scientific papers, textbooks, or notes (PDF, TXT, MD) to enhance the AI's knowledge.</p>
+                    <div class="flex justify-between items-start mb-8">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-800">Knowledge Base Management</h3>
+                            <p class="text-gray-500 mt-2">Upload scientific papers, textbooks, or notes (PDF, TXT, MD) to enhance the AI's knowledge.</p>
+                        </div>
+                        <button 
+                            class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition flex items-center gap-2 text-sm font-medium"
+                            on:click={handleResetKnowledge}
+                        >
+                            <Trash2 size={16} />
+                            Reset Database
+                        </button>
                     </div>
+
+                    {#if knowledgeStats}
+                        <div class="grid grid-cols-3 gap-4 mb-8">
+                            <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                <div class="text-sm text-gray-500">Total Documents</div>
+                                <div class="text-2xl font-bold text-gray-800">{knowledgeStats.file_count}</div>
+                            </div>
+                            <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                <div class="text-sm text-gray-500">Total Chunks</div>
+                                <div class="text-2xl font-bold text-gray-800">{knowledgeStats.total_chunks}</div>
+                            </div>
+                            <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                <div class="text-sm text-gray-500">Vector DB Status</div>
+                                <div class="text-2xl font-bold text-green-600">Active</div>
+                            </div>
+                        </div>
+                    {/if}
 
                     <div class="bg-blue-50 border border-blue-100 rounded-lg p-6 mb-8">
                         <h4 class="font-bold text-blue-800 mb-2">Upload New Documents</h4>
