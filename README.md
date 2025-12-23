@@ -18,6 +18,10 @@
 
 基于 **GLM-4V 多模态大模型**、**RAG 知识库** 和 **RDKit 化学计算引擎** 的新一代智能化学助手。
 
+## 系统架构
+
+![System Architecture](project_architecture.png)
+
 ## 项目简介
 
 **DarkChuang** 是一个现代化的化学问答机器人系统。相较于传统的大模型对话，本项目深度集成了专业的化学工具链和 Agentic Workflow（代理工作流），能够提供精准的分子计算、结构可视化、基于知识库的问答以及专业的 NMR 光谱分析能力。
