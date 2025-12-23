@@ -264,118 +264,140 @@ async def chat(
                     json_str = json_str.split("```")[1].split("```")[0].strip()
 
                 tool_call = json.loads(json_str)
-                tool_result_text = ""
                 
-                # 1. 光谱分析工具 (文本模式)
-                if tool_call.get("tool") == "spectrum_tool":
-                    action = tool_call.get("action")
-                    if action == "analyze_peaks":
-                        peaks = tool_call.get("peaks", [])
-                        hint = tool_call.get("hint", "")
-                        logger.info(f"执行光谱分析工具(文本模式): {peaks}")
-                        
-                        from app.tools.spectrum_tool import SpectrumAnalysisTool
-                        spectrum_tool = SpectrumAnalysisTool()
-                        analysis_result = await spectrum_tool.analyze_peaks_from_text(peaks, hint)
-                        
-                        if isinstance(analysis_result, dict) and "analysis" in analysis_result:
-                            tool_result_text = analysis_result["analysis"]
-                        else:
-                            tool_result_text = str(analysis_result)
+                # Handle case where LLM returns a list of tool calls
+                tool_calls_list = []
+                if isinstance(tool_call, list):
+                    tool_calls_list = tool_call
+                elif isinstance(tool_call, dict):
+                    tool_calls_list = [tool_call]
+                else:
+                    logger.warning("收到无效的工具调用格式")
+                    break
+
+                combined_tool_result_text = ""
+                combined_query_prompt = ""
+                
+                for t_call in tool_calls_list:
+                    tool_result_text = ""
+                    
+                    # 1. 光谱分析工具 (文本模式)
+                    if isinstance(t_call, dict) and t_call.get("tool") == "spectrum_tool":
+                        action = t_call.get("action")
+                        if action == "analyze_peaks":
+                            peaks = t_call.get("peaks", [])
+                            hint = t_call.get("hint", "")
+                            logger.info(f"执行光谱分析工具(文本模式): {peaks}")
                             
-                        query_prompt = f"请根据以下光谱分析结果回答用户的问题：\n{tool_result_text}\n\n【重要指令】如果分析结果中确定了具体的分子结构（SMILES或名称），你必须接着调用 'chemistry_tool' 的 'generate_structure_image' 动作来生成该分子的结构图。请务必执行此步骤！"
-
-                # 2. 化学工具 (属性计算 / 结构图生成)
-                elif tool_call.get("tool") == "chemistry_tool":
-                    action = tool_call.get("action")
-                    molecule = tool_call.get("molecule")
-
-                    if action == "calculate_properties":
-                        logger.info(f"执行化学计算工具: {molecule}")
-                        props = await chemistry_service.calculate_properties(molecule)
-                        if props["success"]:
-                            tool_result_text = f"分子 {molecule} 的属性计算结果：\n{json.dumps(props['properties'], ensure_ascii=False, indent=2)}"
-                            query_prompt = f"请根据这些属性数据回答用户关于 {molecule} 的问题：{tool_result_text}"
-
-                            # 更新消息数据 (属性)
-                            msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
-                            if msg_to_update:
-                                logger.info(f"Updating message {assistant_msg_id} with properties data")
-                                current_data = json.loads(msg_to_update.data) if msg_to_update.data else {}
-                                current_data["properties"] = props["properties"]
-                                msg_to_update.message_type = "molecule"
-                                msg_to_update.data = json.dumps(current_data)
-                                db.commit()
-                                logger.info(f"Message data updated: {msg_to_update.data}")
+                            from app.tools.spectrum_tool import SpectrumAnalysisTool
+                            spectrum_tool = SpectrumAnalysisTool()
+                            analysis_result = await spectrum_tool.analyze_peaks_from_text(peaks, hint)
+                            
+                            if isinstance(analysis_result, dict) and "analysis" in analysis_result:
+                                tool_result_text = analysis_result["analysis"]
                             else:
-                                logger.error(f"Could not find message {assistant_msg_id} to update properties")
-                        else:
-                            tool_result_text = f"错误：{props.get('error')}"
-                            query_prompt = f"计算属性时出错：{tool_result_text}"
+                                tool_result_text = str(analysis_result)
+                                
+                            combined_query_prompt += f"请根据以下光谱分析结果回答用户的问题：\n{tool_result_text}\n\n【重要指令】如果分析结果中确定了具体的分子结构（SMILES或名称），你必须接着调用 'chemistry_tool' 的 'generate_structure_image' 动作来生成该分子的结构图。请务必执行此步骤！\n"
 
-                    elif action == "generate_structure_image":
-                        logger.info(f"执行结构图生成工具: {molecule}")
-                        img_result = await chemistry_service.generate_structure_image(molecule)
-                        
-                        # 自动计算属性以便展示 Drug Likeness Score
-                        props_result = await chemistry_service.calculate_properties(molecule)
-                        
-                        if img_result["success"]:
-                            image_markdown = f"![{molecule}]({img_result['image']})"
-                            tool_result_text = f"已生成 {molecule} 的结构图: {image_markdown}\nSMILES: {img_result['smiles']}"
+                    # 2. 化学工具 (属性计算 / 结构图生成)
+                    elif isinstance(t_call, dict) and t_call.get("tool") == "chemistry_tool":
+                        action = t_call.get("action")
+                        molecule = t_call.get("molecule")
+
+                        if action == "calculate_properties":
+                            logger.info(f"执行化学计算工具: {molecule}")
+                            props = await chemistry_service.calculate_properties(molecule)
+                            if props["success"]:
+                                tool_result_text = f"分子 {molecule} 的属性计算结果：\n{json.dumps(props['properties'], ensure_ascii=False, indent=2)}"
+                                combined_query_prompt += f"请根据这些属性数据回答用户关于 {molecule} 的问题：{tool_result_text}\n"
+
+                                # 更新消息数据 (属性)
+                                msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+                                if msg_to_update:
+                                    logger.info(f"Updating message {assistant_msg_id} with properties data")
+                                    current_data = json.loads(msg_to_update.data) if msg_to_update.data else {}
+                                    current_data["properties"] = props["properties"]
+                                    msg_to_update.message_type = "molecule"
+                                    msg_to_update.data = json.dumps(current_data)
+                                    db.commit()
+                                    logger.info(f"Message data updated: {msg_to_update.data}")
+                                else:
+                                    logger.error(f"Could not find message {assistant_msg_id} to update properties")
+                            else:
+                                tool_result_text = f"错误：{props.get('error')}"
+                                combined_query_prompt += f"计算属性时出错：{tool_result_text}\n"
+
+                        elif action == "generate_structure_image":
+                            logger.info(f"执行结构图生成工具: {molecule}")
+                            img_result = await chemistry_service.generate_structure_image(molecule)
                             
-                            if props_result["success"]:
-                                tool_result_text += f"\n\n同时计算了该分子的属性：\n{json.dumps(props_result['properties'], ensure_ascii=False, indent=2)}"
+                            # 自动计算属性以便展示 Drug Likeness Score
+                            props_result = await chemistry_service.calculate_properties(molecule)
                             
-                            query_prompt = f"【系统指令】结构图已成功生成（见下文）。请直接向用户展示该图片并解释推断理由。严禁再次调用 'generate_structure_image' 工具！\n\n结构图信息：{tool_result_text}"
-                            
-                            # 更新消息数据 (2D图 + 属性)
-                            msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
-                            if msg_to_update:
-                                data_payload = {"image": img_result['image'], "smiles": img_result['smiles']}
+                            if img_result["success"]:
+                                image_markdown = f"![{molecule}]({img_result['image']})"
+                                tool_result_text = f"已生成 {molecule} 的结构图: {image_markdown}\nSMILES: {img_result['smiles']}"
+                                
                                 if props_result["success"]:
-                                    data_payload["properties"] = props_result["properties"]
-                                msg_to_update.data = json.dumps(data_payload)
-                                db.commit()
-                        else:
-                            tool_result_text = f"错误：{img_result.get('error')}"
-                            query_prompt = f"生成结构图时出错：{tool_result_text}"
+                                    tool_result_text += f"\n\n同时计算了该分子的属性：\n{json.dumps(props_result['properties'], ensure_ascii=False, indent=2)}"
+                                
+                                combined_query_prompt += f"【系统指令】结构图已成功生成（见下文）。请直接向用户展示该图片并解释推断理由。严禁再次调用 'generate_structure_image' 工具！\n\n结构图信息：{tool_result_text}\n"
+                                
+                                # 更新消息数据 (2D图 + 属性)
+                                msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+                                if msg_to_update:
+                                    current_data = json.loads(msg_to_update.data) if msg_to_update.data else {}
+                                    current_data["image"] = img_result['image']
+                                    current_data["smiles"] = img_result['smiles']
+                                    if props_result["success"]:
+                                        current_data["properties"] = props_result["properties"]
+                                    msg_to_update.data = json.dumps(current_data)
+                                    db.commit()
+                            else:
+                                tool_result_text = f"错误：{img_result.get('error')}"
+                                combined_query_prompt += f"生成结构图时出错：{tool_result_text}\n"
 
-                    elif action == "generate_3d_structure":
-                        logger.info(f"执行3D结构生成工具: {molecule}")
-                        sdf_result = await chemistry_service.generate_3d_structure(molecule)
-                        
-                        # 自动计算属性以便展示 Drug Likeness Score
-                        props_result = await chemistry_service.calculate_properties(molecule)
-
-                        if sdf_result["success"]:
-                            tool_result_text = f"已生成 {molecule} 的3D结构数据 (SDF格式)。"
+                        elif action == "generate_3d_structure":
+                            logger.info(f"执行3D结构生成工具: {molecule}")
+                            sdf_result = await chemistry_service.generate_3d_structure(molecule)
                             
-                            if props_result["success"]:
-                                tool_result_text += f"\n\n同时计算了该分子的属性：\n{json.dumps(props_result['properties'], ensure_ascii=False, indent=2)}"
+                            # 自动计算属性以便展示 Drug Likeness Score
+                            props_result = await chemistry_service.calculate_properties(molecule)
 
-                            query_prompt = f"【系统指令】3D结构已成功生成。请告诉用户 {molecule} 的3D结构已准备好，并简要介绍该分子的立体化学特征。严禁再次调用 'generate_3d_structure' 工具！"
-                            
-                            # 更新消息数据 (3D SDF + 属性)
-                            msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
-                            if msg_to_update:
-                                msg_to_update.message_type = "molecule"
-                                data_payload = {"sdf": sdf_result['sdf'], "smiles": sdf_result['smiles']}
+                            if sdf_result["success"]:
+                                tool_result_text = f"已生成 {molecule} 的3D结构数据 (SDF格式)。"
+                                
                                 if props_result["success"]:
-                                    data_payload["properties"] = props_result["properties"]
-                                msg_to_update.data = json.dumps(data_payload)
-                                db.commit()
-                        else:
-                            tool_result_text = f"错误：{sdf_result.get('error')}"
-                            query_prompt = f"生成3D结构时出错：{tool_result_text}"
-                
+                                    tool_result_text += f"\n\n同时计算了该分子的属性：\n{json.dumps(props_result['properties'], ensure_ascii=False, indent=2)}"
+
+                                combined_query_prompt += f"【系统指令】3D结构已成功生成。请告诉用户 {molecule} 的3D结构已准备好，并简要介绍该分子的立体化学特征。严禁再次调用 'generate_3d_structure' 工具！\n"
+                                
+                                # 更新消息数据 (3D SDF + 属性)
+                                msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+                                if msg_to_update:
+                                    msg_to_update.message_type = "molecule"
+                                    current_data = json.loads(msg_to_update.data) if msg_to_update.data else {}
+                                    current_data["sdf"] = sdf_result['sdf']
+                                    current_data["smiles"] = sdf_result['smiles']
+                                    if props_result["success"]:
+                                        current_data["properties"] = props_result["properties"]
+                                    msg_to_update.data = json.dumps(current_data)
+                                    db.commit()
+                            else:
+                                tool_result_text = f"错误：{sdf_result.get('error')}"
+                                combined_query_prompt += f"生成3D结构时出错：{tool_result_text}\n"
+                    
+                    if tool_result_text:
+                        combined_tool_result_text += tool_result_text + "\n"
+
                 # 如果成功执行了工具，重新调用LLM
-                if tool_result_text:
+                if combined_tool_result_text:
                     # 将工具结果追加到上下文
-                    context += f"\n\n【工具执行结果】\n{tool_result_text}\n"
+                    context += f"\n\n【工具执行结果】\n{combined_tool_result_text}\n"
                     
                     response_message = await llm_service.generate_response(
-                        query=query_prompt,
+                        query=combined_query_prompt,
                         context=context,
                         max_tokens=request.max_tokens
                     )

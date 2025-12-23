@@ -102,8 +102,10 @@
                <Maximize2 size={16} />
              </button>
           </div>
-        {:else if message.data.image}
-           <!-- 2D Fallback -->
+        {/if}
+
+        {#if message.data.image}
+           <!-- 2D Image -->
            <div class="mb-3 relative group flex justify-center">
              <!-- svelte-ignore a11y-click-events-have-key-events -->
              <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
