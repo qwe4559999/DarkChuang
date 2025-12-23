@@ -54,6 +54,40 @@ async def delete_file(file_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"success": True, "message": "File deleted"}
 
+@router.post("/reset")
+async def reset_knowledge_base(
+    rag_service: RAGService = Depends(get_rag_service),
+    db: Session = Depends(get_db)
+):
+    """重置知识库（清空向量库和文件记录）"""
+    # 1. 清空向量库
+    success = await rag_service.clear_database()
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to clear vector database")
+    
+    # 2. 清空数据库记录
+    db.query(KnowledgeFile).delete()
+    db.commit()
+    
+    # 3. 清空物理文件
+    upload_dir = Path(settings.UPLOAD_DIR) / "knowledge_base"
+    if upload_dir.exists():
+        for item in upload_dir.iterdir():
+            if item.is_file():
+                try:
+                    item.unlink()
+                except Exception as e:
+                    logger.error(f"Failed to delete file {item}: {e}")
+
+    return {"success": True, "message": "Knowledge base reset successfully"}
+
+@router.get("/stats")
+async def get_knowledge_stats(
+    rag_service: RAGService = Depends(get_rag_service)
+):
+    """获取知识库统计信息（直接来自向量库）"""
+    return await rag_service.get_database_stats()
+
 @router.post("/upload")
 async def upload_documents(
     files: List[UploadFile] = File(...),

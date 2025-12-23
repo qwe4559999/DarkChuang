@@ -162,6 +162,49 @@ class RAGService:
         except Exception as e:
             logger.error(f"从目录加载文档失败: {str(e)}")
             raise
+
+    async def clear_database(self) -> bool:
+        """清空向量数据库"""
+        try:
+            if self.vectorstore:
+                # 删除集合并重新初始化
+                self.vectorstore.delete_collection()
+                self._initialize_vectorstore()
+                logger.info("向量数据库已清空")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"清空数据库失败: {str(e)}")
+            return False
+
+    async def get_database_stats(self) -> Dict[str, Any]:
+        """获取数据库统计信息"""
+        try:
+            if not self.vectorstore:
+                return {"count": 0, "files": []}
+            
+            # 获取所有数据
+            data = self.vectorstore.get()
+            metadatas = data.get("metadatas", [])
+            
+            files = {}
+            for meta in metadatas:
+                if meta and "file_name" in meta:
+                    fname = meta["file_name"]
+                    if fname not in files:
+                        files[fname] = {"count": 0, "source": meta.get("source")}
+                    files[fname]["count"] += 1
+            
+            file_list = [{"name": k, "chunks": v["count"], "path": v["source"]} for k, v in files.items()]
+            
+            return {
+                "total_chunks": len(metadatas),
+                "file_count": len(files),
+                "files": file_list
+            }
+        except Exception as e:
+            logger.error(f"获取数据库统计失败: {str(e)}")
+            return {"error": str(e)}
     
     async def add_documents(self, documents: List[Document]) -> None:
         """添加文档到向量数据库"""
