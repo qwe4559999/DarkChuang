@@ -39,6 +39,7 @@ class LLMService:
         self,
         query: str,
         context: str = "",
+        history: List[Dict[str, str]] = None,
         max_tokens: int = 1000,
         temperature: float = 0.7
     ) -> str:
@@ -51,10 +52,18 @@ class LLMService:
             system_prompt = self._build_system_prompt()
             user_prompt = self._build_user_prompt(query, context)
 
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # 添加历史记录
+            if history:
+                # 过滤掉无效的角色或内容
+                valid_history = [
+                    msg for msg in history 
+                    if msg.get("role") in ["user", "assistant"] and msg.get("content")
+                ]
+                messages.extend(valid_history)
+
+            messages.append({"role": "user", "content": user_prompt})
 
             # 调用API
             model_name = getattr(settings, 'UNIFIED_MODEL_NAME', 'zai-org/GLM-4.6V')

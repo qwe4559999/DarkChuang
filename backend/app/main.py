@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from app.api import chat, health, chemistry, knowledge, upload
 from app.api.v1 import spectrum
 from app.core.config import settings
@@ -26,6 +27,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# 配置代理头中间件 (处理 HTTPS 和 域名重定向)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # 配置CORS
 app.add_middleware(

@@ -122,7 +122,7 @@ async def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
         updated_at=conv.updated_at
     )
 
-@router.post("/", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
     rag_service: RAGService = Depends(get_rag_service),
@@ -205,11 +205,29 @@ async def chat(
                 logger.error(f"光谱分析失败: {str(e)}")
                 context += f"\n\n【光谱图像分析失败】\n{str(e)}\n"
 
+        # 获取历史消息 (用于上下文)
+        # 获取最近的 11 条消息，排除刚刚插入的当前消息（它会作为 query 参数传递）
+        recent_msgs = db.query(Message).filter(
+            Message.conversation_id == conversation_id
+        ).order_by(Message.created_at.desc()).limit(11).all()
+        
+        chat_history = []
+        if recent_msgs:
+            # 跳过第一条（也就是刚刚插入的当前消息）
+            # 只有当第一条确实是当前消息时才跳过（双重检查）
+            start_index = 1 if (recent_msgs[0].role == "user" and recent_msgs[0].content == request.message) else 0
+            
+            for m in recent_msgs[start_index:]:
+                chat_history.append({"role": m.role, "content": m.content})
+            
+            chat_history.reverse() # 转为正序（旧 -> 新）
+
         # 生成回答
         logger.info("开始生成回答")
         response_message = await llm_service.generate_response(
             query=request.message,
             context=context,
+            history=chat_history,
             max_tokens=request.max_tokens
         )
 
