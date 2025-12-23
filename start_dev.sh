@@ -52,7 +52,15 @@ source venv/bin/activate
 
 # Check .env
 if [ ! -f ".env" ]; then
-    if [ -f ".env.example" ]; then
+    if [ -f "../.env.example" ]; then
+        echo "    - Creating .env from project root example..."
+        cp ../.env.example .env
+        echo ""
+        echo "    [IMPORTANT] A new .env file was created in 'backend/'."
+        echo "                Please edit it to add your SILICONFLOW_API_KEY."
+        echo "                Press any key to continue..."
+        read -n 1 -s -r
+    elif [ -f ".env.example" ]; then
         echo "    - Creating .env from example..."
         cp .env.example .env
         echo ""

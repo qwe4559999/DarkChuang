@@ -56,7 +56,15 @@ call venv\Scripts\activate.bat
 
 :: 检查 .env 文件
 if not exist "backend\.env" (
-    if exist "backend\.env.example" (
+    if exist ".env.example" (
+        echo     - Creating .env from project root example...
+        copy ".env.example" "backend\.env" >nul
+        echo.
+        echo [IMPORTANT] A new .env file was created in 'backend/'.
+        echo             Please edit it to add your SILICONFLOW_API_KEY before using AI features.
+        echo.
+        pause
+    ) else if exist "backend\.env.example" (
         echo     - Creating .env from example...
         copy "backend\.env.example" "backend\.env" >nul
         echo.
@@ -65,7 +73,7 @@ if not exist "backend\.env" (
         echo.
         pause
     ) else (
-        echo [WARN] backend\.env.example not found. Skipping .env creation.
+        echo [WARN] .env.example not found. Skipping .env creation.
     )
 )
 
