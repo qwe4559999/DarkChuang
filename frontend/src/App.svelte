@@ -8,10 +8,11 @@
   import { messages, isLoading } from './stores/chat';
   import { auth, logout } from './stores/auth';
   import { api } from './lib/api';
-  import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus, Github, Book, LogOut, User } from 'lucide-svelte';
+  import { FlaskConical, MessageSquare, FileText, Upload, Trash2, RefreshCw, Plus, Github, Book, LogOut, User, Menu, X } from 'lucide-svelte';
 
   let chatContainer: HTMLElement;
   let activeTab = 'chat'; // 'chat', 'knowledge'
+  let isSidebarOpen = false;
   let spectrumFile: File | null = null;
   let spectrumType = 'auto';
   let spectrumResult: any = null;
@@ -290,13 +291,26 @@
 </script>
 
 {#if $auth.isAuthenticated}
-<div class="flex h-screen bg-gray-100">
+<div class="flex h-screen bg-gray-100 relative">
+  <!-- Mobile Sidebar Overlay -->
+  {#if isSidebarOpen}
+    <div 
+      class="fixed inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm transition-opacity"
+      on:click={() => isSidebarOpen = false}
+    ></div>
+  {/if}
+
   <!-- Sidebar -->
-  <aside class="w-64 bg-white shadow-md flex flex-col z-20">
+  <aside class="fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-xl flex flex-col transition-transform duration-300 transform {isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:shadow-md">
       <div class="p-6 border-b border-gray-100">
-          <div class="flex items-center gap-2 text-blue-600 font-bold text-xl">
-              <FlaskConical size={24} />
-              <span>DarkChuang</span>
+          <div class="flex justify-between items-center">
+              <div class="flex items-center gap-2 text-blue-600 font-bold text-xl">
+                  <FlaskConical size={24} />
+                  <span>DarkChuang</span>
+              </div>
+              <button class="md:hidden text-gray-400 hover:text-gray-600" on:click={() => isSidebarOpen = false}>
+                <X size={20} />
+              </button>
           </div>
           <p class="text-xs text-gray-400 mt-1 ml-8">AI Chemistry Assistant</p>
       </div>
@@ -375,14 +389,19 @@
   </aside>
 
   <!-- Main Content -->
-  <main class="flex-1 flex flex-col h-screen overflow-hidden">
+  <main class="flex-1 flex flex-col h-screen overflow-hidden w-full">
     <!-- Header -->
-    <header class="bg-white shadow-sm px-6 py-4 flex items-center justify-between z-10">
-      <h2 class="text-lg font-semibold text-gray-800">
+    <header class="bg-white shadow-sm px-4 md:px-6 py-4 flex items-center justify-between z-10">
+      <div class="flex items-center gap-3">
+        <button class="md:hidden text-gray-500 hover:text-gray-700" on:click={() => isSidebarOpen = true}>
+          <Menu size={24} />
+        </button>
+        <h2 class="text-lg font-semibold text-gray-800">
           {#if activeTab === 'chat'}Chat Assistant{/if}
           {#if activeTab === 'spectrum'}Spectrum Analysis{/if}
           {#if activeTab === 'knowledge'}Knowledge Base Management{/if}
-      </h2>
+        </h2>
+      </div>
     </header>
 
     <!-- Content Area -->
@@ -459,7 +478,7 @@
                     </div>
 
                     {#if knowledgeStats}
-                        <div class="grid grid-cols-3 gap-4 mb-8">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                             <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                                 <div class="text-sm text-gray-500">Total Documents</div>
                                 <div class="text-2xl font-bold text-gray-800">{knowledgeStats.file_count}</div>
@@ -477,7 +496,7 @@
 
                     <div class="bg-blue-50 border border-blue-100 rounded-lg p-6 mb-8">
                         <h4 class="font-bold text-blue-800 mb-2">Upload New Documents</h4>
-                        <div class="flex gap-4 items-center">
+                        <div class="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
                             <input
                                 type="file"
                                 multiple
@@ -511,7 +530,7 @@
                             </button>
                         </div>
                         
-                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>

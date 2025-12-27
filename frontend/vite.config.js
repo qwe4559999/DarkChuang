@@ -10,6 +10,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        timeout: 300000, // 5 minutes
+        proxyTimeout: 300000, // 5 minutes
         configure: (proxy, _options) => {
           proxy.on('proxyReq', (proxyReq, req, _res) => {
             proxyReq.setHeader('X-Forwarded-Host', req.headers.host);
