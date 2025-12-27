@@ -162,10 +162,12 @@ async def process_chat_background(
         )
 
         # 更新助手回复 (初始回复)
-        msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
-        if msg_to_update:
-            msg_to_update.content = response_message
-            db.commit()
+        # 只有当回复不是工具调用时才更新数据库，避免显示JSON
+        if "chemistry_tool" not in response_message and "spectrum_tool" not in response_message:
+            msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+            if msg_to_update:
+                msg_to_update.content = response_message
+                db.commit()
 
         # 工具调用循环
         max_tool_calls = 3
@@ -317,10 +319,12 @@ async def process_chat_background(
                         max_tokens=request.max_tokens
                     )
                     
-                    msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
-                    if msg_to_update:
-                        msg_to_update.content = response_message
-                        db.commit()
+                    # 只有当回复不是工具调用时才更新数据库，避免显示JSON
+                    if "chemistry_tool" not in response_message and "spectrum_tool" not in response_message:
+                        msg_to_update = db.query(Message).filter(Message.id == assistant_msg_id).first()
+                        if msg_to_update:
+                            msg_to_update.content = response_message
+                            db.commit()
                 else:
                     break
 
