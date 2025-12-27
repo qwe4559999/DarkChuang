@@ -1,5 +1,6 @@
 # 化学计算
 rdkit>=2023.9.5
+PubChemPy>=1.0.4
 
 # Web框架
 fastapi>=0.104.1

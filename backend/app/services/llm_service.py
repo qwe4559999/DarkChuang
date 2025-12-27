@@ -209,7 +209,7 @@ class LLMService:
     "hint": "用户提供的额外信息（如分子式）"
 }
 ```
-工具调用通用格式：
+工具调用通用格式（单个工具）：
 ```json
 {
     "tool": "chemistry_tool",
@@ -217,25 +217,26 @@ class LLMService:
     "molecule": "Methamphetamine"
 }
 ```
-或者
+
+**如果需要同时调用多个工具（例如同时生成2D和3D结构），请输出一个JSON列表：**
 ```json
-{
-    "tool": "chemistry_tool",
-    "action": "generate_structure_image",
-    "molecule": "Methamphetamine"
-}
+[
+    {
+        "tool": "chemistry_tool",
+        "action": "generate_structure_image",
+        "molecule": "Methamphetamine"
+    },
+    {
+        "tool": "chemistry_tool",
+        "action": "generate_3d_structure",
+        "molecule": "Methamphetamine"
+    }
+]
 ```
-或者
-```json
-{
-    "tool": "chemistry_tool",
-    "action": "generate_3d_structure",
-    "molecule": "Methamphetamine"
-}
-```
+
 **重要提示：如果用户使用中文化学名称，请尽你所能将其翻译为标准的英文化学名称或SMILES字符串放在`molecule`字段中，以确保查询成功。**
 **当用户询问分子的“性质”、“理化性质”或“成药性”时，务必调用 `calculate_properties` 工具以获取精确的物理化学参数和药物潜力评分，即使你已经有了文本资料。**
-**当用户要求“展示结构”、“画出结构”或“查看结构”时，请同时调用 `generate_structure_image` (2D) 和 `generate_3d_structure` (3D) 两个工具，或者优先调用 `generate_3d_structure` 以提供更丰富的体验。**
+**当用户要求“展示结构”、“画出结构”或“查看结构”时，请务必同时调用 `generate_structure_image` (2D) 和 `generate_3d_structure` (3D) 两个工具（使用JSON列表格式），以提供最完整的视觉体验。**
 
 如果不需要调用工具，请直接用自然语言回答用户的问题，不要使用JSON格式。
 只有在需要调用工具时，才输出上述的JSON格式。

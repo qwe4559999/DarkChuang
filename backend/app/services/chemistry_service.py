@@ -7,6 +7,8 @@ import uuid
 import os
 from loguru import logger
 import re
+import asyncio
+import functools
 
 class ChemistryService:
     """化学服务 - 提供分子属性计算和可视化功能"""
@@ -105,6 +107,10 @@ class ChemistryService:
 
     async def calculate_properties(self, molecule_string: str) -> Dict[str, Any]:
         """计算分子物理化学属性"""
+        return await asyncio.to_thread(self._calculate_properties_sync, molecule_string)
+
+    def _calculate_properties_sync(self, molecule_string: str) -> Dict[str, Any]:
+        """计算分子物理化学属性 (同步实现)"""
         try:
             mol = self.get_molecule_from_string(molecule_string)
             if not mol:
@@ -163,6 +169,10 @@ class ChemistryService:
 
     async def generate_3d_structure(self, molecule_string: str) -> Dict[str, Any]:
         """生成分子3D结构数据 (SDF格式)"""
+        return await asyncio.to_thread(self._generate_3d_structure_sync, molecule_string)
+
+    def _generate_3d_structure_sync(self, molecule_string: str) -> Dict[str, Any]:
+        """生成分子3D结构数据 (SDF格式) (同步实现)"""
         try:
             mol = self.get_molecule_from_string(molecule_string)
             if not mol:
@@ -214,6 +224,10 @@ class ChemistryService:
 
     async def generate_structure_image(self, molecule_string: str, width: int = 400, height: int = 400) -> Dict[str, Any]:
         """生成分子2D结构图"""
+        return await asyncio.to_thread(self._generate_structure_image_sync, molecule_string, width, height)
+
+    def _generate_structure_image_sync(self, molecule_string: str, width: int = 400, height: int = 400) -> Dict[str, Any]:
+        """生成分子2D结构图 (同步实现)"""
         try:
             mol = self.get_molecule_from_string(molecule_string)
             if not mol:
