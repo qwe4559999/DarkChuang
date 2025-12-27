@@ -220,16 +220,42 @@
           await loadChatHistory(); // Refresh list
       }
 
-      // If the backend response contains data (e.g. from tool calls), use it
-      if (response.data || response.message_type === 'molecule') {
-          messages.addMessage({ 
-              role: 'assistant', 
-              content: response.message,
-              type: response.message_type,
-              data: response.data
-          });
-      } else {
-          messages.addMessage({ role: 'assistant', content: response.message || response });
+      // Add initial response (which might be "Processing...")
+      messages.addMessage({ 
+          role: 'assistant', 
+          content: response.message,
+          type: response.message_type,
+          data: response.data
+      });
+
+      // If the response indicates processing, start polling
+      if (response.message === "正在分析请求并调用相关工具...") {
+          const pollInterval = setInterval(async () => {
+              try {
+                  const conv = await api.getConversation(currentConversationId!);
+                  const lastMsg = conv.messages[conv.messages.length - 1];
+                  
+                  // Check if content has changed or type has changed (e.g. to molecule)
+                  if (lastMsg.content !== "正在分析请求并调用相关工具..." || lastMsg.type === 'molecule') {
+                      clearInterval(pollInterval);
+                      // Update the last message in the store
+                      messages.updateLastMessage({
+                          role: 'assistant',
+                          content: lastMsg.content,
+                          type: lastMsg.type,
+                          data: lastMsg.data
+                      });
+                      isLoading.set(false);
+                  }
+              } catch (e) {
+                  console.error("Polling error", e);
+                  clearInterval(pollInterval);
+                  isLoading.set(false);
+              }
+          }, 2000);
+          
+          // Don't set isLoading to false yet, let the poller handle it
+          return; 
       }
 
       // Client-side demo logic removed in favor of backend tool calls
@@ -239,7 +265,13 @@
         content: `**Error:** Failed to get response. ${error}`
       });
     } finally {
-      isLoading.set(false);
+      // Only set loading to false if we didn't start polling
+      // We check the last message content to see if we are in polling mode
+      const currentMsgs = get(messages);
+      const lastMsg = currentMsgs[currentMsgs.length - 1];
+      if (lastMsg?.content !== "正在分析请求并调用相关工具...") {
+          isLoading.set(false);
+      }
     }
   }
 

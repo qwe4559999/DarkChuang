@@ -7,6 +7,11 @@ function createChatStore() {
     return {
         subscribe,
         addMessage: (message: Message) => update(messages => [...messages, message]),
+        updateLastMessage: (message: Message) => update(messages => {
+            const newMessages = [...messages];
+            newMessages[newMessages.length - 1] = message;
+            return newMessages;
+        }),
         clear: () => set([]),
         setMessages: (messages: Message[]) => set(messages)
     };
