@@ -248,10 +248,15 @@ async def chat(
         # 这里为了简化，我们先不保存，等工具链执行完再保存最终结果
         # 但为了防止工具执行失败导致没有记录，我们还是先保存，后续update
         
+        # 检查是否为工具调用，如果是，则在数据库中保存占位符，而不是原始JSON
+        initial_content = response_message
+        if "chemistry_tool" in response_message or "spectrum_tool" in response_message:
+            initial_content = "正在分析请求并调用相关工具..."
+
         assistant_msg = Message(
             conversation_id=conversation_id,
             role="assistant",
-            content=response_message,
+            content=initial_content,
             message_type="text"
         )
         db.add(assistant_msg)
